@@ -34,7 +34,7 @@ export function TransactionTable({ rows }: { rows: TransactionRow[] }) {
           <td><div className="customer-cell"><span className="customer-avatar">{String(row.phone_number || "?").slice(-2)}</span><span>{row.phone_number || "—"}</span></div></td>
           <td>{formatDate(row.created_at)}</td>
           <td><span className={`method-badge ${(row.payment_method || "").toLowerCase()}`}>{row.payment_method || "—"}</span></td>
-          <td><strong>{formatMoney(row.amount)}</strong></td>
+          <td><strong>{formatMoney(row.amount, row.currency || "XOF")}</strong></td>
           <td><PaymentStatus status={row.status} source={row.source} /></td>
         </tr>)}</tbody>
       </table>
@@ -43,9 +43,13 @@ export function TransactionTable({ rows }: { rows: TransactionRow[] }) {
 }
 
 export function PaymentStatus({ status, source }: { status: number | string; source?: string }) {
+  if (source === "manual_receipt") {
+    const confirmed = status === "confirmed";
+    return <span className={`status-badge ${confirmed ? "success" : "failed"}`}><i />{confirmed ? "Confirmé · manuel" : "Annulé · manuel"}</span>;
+  }
   const numericStatus = Number(status);
   const label = source === "manual_link" ? "Payé · manuel" : numericStatus === 1 ? "Réussi" : numericStatus === 0 ? "En attente" : "Échec";
-  const tone = numericStatus === 1 ? "success" : numericStatus === 0 ? "pending" : "failed";
+  const tone = source === "manual_link" || status === "confirmed" || numericStatus === 1 ? "success" : numericStatus === 0 ? "pending" : "failed";
   return <span className={`status-badge ${tone}`}><i />{label}</span>;
 }
 

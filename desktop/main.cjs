@@ -21,6 +21,7 @@ async function createWindow() {
   const window = new BrowserWindow({
     width: 1440,
     height: 960,
+    icon: path.join(__dirname, '../build/payflow-icon.png'),
     minWidth: 920,
     minHeight: 650,
     show: false,

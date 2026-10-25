@@ -2,6 +2,8 @@ node_modules/
 dist/
 dist-mobile/
 release/
+backup_verify
+backups/
 android/
 ios/
 .env

@@ -8,6 +8,7 @@ Notes de reprise pour l’application desktop. Lire d’abord le [README racine]
 - `package.json` déclare les scripts `package:win` et `package:linux`.
 - Les projets natifs Android et iOS sont générés pendant les workflows et ignorés par Git.
 - La configuration de packaging est dans `package.json`.
+- Le logo SVG `public/payflow-icon.svg` sert d’icône Linux et de favicon; `build/payflow-icon.ico` sert à l’installeur Windows et `build/payflow-icon.png` à la fenêtre Electron.
 - Les builds APK/EXE ne sont pas confirmés comme ayant été exécutés ou validés.
 - Les workflows GitHub Actions de build sont dans `.github/workflows/build-desktop.yml` et `.github/workflows/build-mobile.yml`.
 

@@ -23,14 +23,15 @@
     "dotenv": "^18.0.9",
     "express": "^4.21.2",
     "gsap": "^3.15.0",
+    "qrcode": "^1.5.4",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "sqlite3": "^6.0.1",
     "three": "^0.186.1"
   },
   "devDependencies": {
-    "concurrently": "^10.0.6",
     "@capacitor/cli": "^7.4.3",
+    "concurrently": "^10.0.6",
     "electron": "^38.0.0",
     "electron-builder": "^26.0.12",
     "vite": "^8.3.5"
@@ -45,6 +46,8 @@
     "files": [
       "desktop/**/*",
       "server/**/*",
+      "tools/**/*",
+      "build/payflow-icon.png",
       "server.js",
       "dist/**/*",
       "package.json",
@@ -54,6 +57,7 @@
       "output": "release"
     },
     "win": {
+      "icon": "build/payflow-icon.ico",
       "target": [
         "nsis"
       ]
@@ -63,6 +67,7 @@
       "allowToChangeInstallationDirectory": true
     },
     "linux": {
+      "icon": "public/payflow-icon.svg",
       "target": [
         "AppImage"
       ]

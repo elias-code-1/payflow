@@ -10,29 +10,32 @@ Ce README est le point d’entrée pour toute personne ou IA qui reprend le proj
 4. Garder le flux de paiement manuel : le marchand crée et partage un lien, puis peut mettre à jour son statut dans le dashboard. Ne pas ajouter d’envoi automatique ni de webhook sans demande explicite.
 5. Préserver l’isolation des comptes dans chaque requête et requête SQL.
 6. Ne pas publier, pousser, committer ou déployer sans demande explicite.
-7. Ne pas commencer les fonctionnalités proposées, la migration TypeScript ou l’utilitaire C avant d’avoir vérifié l’état courant et reçu une validation claire.
+7. Pour toute fonctionnalité explicitement demandée, inspecter l’état courant et la documentation avant modification.
 
 ## État actuel vérifié
 
 - Frontend React/Vite en TypeScript/TSX; le backend reste en JavaScript.
 - Backend Express et persistance SQLite.
 - Authentification locale avec sessions cookie et comptes distincts.
-- Dashboard avec vue d’ensemble, encaissements manuels, liens, clients, analytique, paramètres et aide/don.
+- Dashboard avec vue d’ensemble, encaissements manuels, gestion des liens, fiches clients, catalogue, QR codes, exports, sauvegardes, analytique, relances, paramètres et aide/don.
 - Création de liens PayGateGlobal à partir de la clé API configurée par compte.
 - Statut des liens modifiable manuellement (`pending`, `paid`, `cancelled`).
 - Landing page et dashboard ont des entrées séparées.
 - Aucun webhook n’est utilisé : PayFlow ne reçoit aucune notification de paiement.
-- La compilation `npm run build` a réussi lors de la dernière vérification. Vite signale un bundle dashboard supérieur à 500 kB.
+- La dernière compilation documentée a précédé l’ajout des neuf modules. Le build n’a pas été exécuté pendant cette livraison; Vite signalait auparavant un bundle dashboard supérieur à 500 kB.
 - Environnement local déjà lancé lors de la dernière session : Vite sur `http://127.0.0.1:5173/`, API sur `http://localhost:3001`. Vérifier qu’il est encore actif avant d’en lancer un autre.
 
 ## Ce qui n’est pas encore réalisé ou confirmé
 
-- Les fonctionnalités supplémentaires de la roadmap ne sont pas toutes implémentées.
+- Les neuf modules décrits dans [`docs/fonctionnalites.md`](docs/fonctionnalites.md) ont une première implémentation dans le dashboard et l’API; les builds et tests restent à faire.
 - Les sources frontend sont maintenant en `.ts` / `.tsx` avec `tsconfig.json`. Le type-check dédié reste à configurer lorsque les dépendances TypeScript et React pourront être installées.
-- L’utilitaire C de validation de sauvegarde SQLite n’a pas été créé.
+- `dashboard.html` est seulement l’entrée Vite; le dashboard et ses pages sont rendus par React/TSX.
+- Les utilitaires Python et C facultatifs sont dans `tools/` et leurs sources, commandes et limites apparaissent dans la page Sauvegardes. La page conserve aussi la sauvegarde/restauration JSON par compte.
+- La page Relances contient 224 modèles en français; le code source et les raccourcis sont dans `src/data/reminderTemplates.ts`.
+- Le logo SVG `public/payflow-icon.svg` sert de favicon et d’icône Linux; ses dérivés PNG/ICO sont dans `build/`.
 - Le dépôt public est [elias-code-1/payflow](https://github.com/elias-code-1/payflow), branche `main`.
-- Aucun workflow GitHub Actions de build n’est confirmé.
-- Les builds APK et EXE ne sont pas validés ici.
+- Les workflows de build sont présents dans `.github/workflows/build-desktop.yml` et `.github/workflows/build-mobile.yml` (Windows, Linux, APK Android et IPA iOS signé sur lancement manuel).
+- Les builds des workflows n’ont pas été exécutés ou validés dans cette livraison.
 - Ne pas considérer le projet prêt pour un déploiement public multi-utilisateur sans audit et durcissement.
 
 ## Démarrage et vérification
@@ -75,6 +78,7 @@ src/
   types/                          modèles et contrats frontend
   utils/                          formatage et calculs analytiques typés
 docs/                             documentation produit et technique
+tools/                            scripts locaux Python et C pour SQLite
 desktop/main.cjs                  point d’entrée Electron
 ```
 
@@ -86,18 +90,15 @@ Les routes réellement présentes sont déclarées dans `server/routes/api.js`. 
 - Ne jamais modifier ou supprimer les données SQLite de l’utilisateur pour tester.
 - Avant une migration SQLite, examiner les données existantes et prévoir une migration non destructive.
 - Toutes les requêtes de données marchandes doivent être limitées à l’utilisateur authentifié.
-- Les transactions, revenus et graphiques visibles proviennent des liens marqués `paid` manuellement dans le dashboard.
+- Les transactions, revenus et graphiques visibles proviennent des encaissements saisis et des liens marqués `paid` manuellement. Un encaissement confirmé lié à un lien payé remplace ce lien dans les agrégats; les devises restent séparées.
 - L’app locale n’est pas automatiquement adaptée à un hébergement public ; examiner les sessions, secrets, stockage et modèle d’instance avant tout déploiement.
 
 ## Suite de travail suggérée
 
-Avant de coder, demander à l’utilisateur de confirmer la prochaine tâche. Les pistes précédemment évoquées, mais non commencées ou non finalisées, comprennent :
+Pistes restantes :
 
-- améliorer la gestion des paiements manuels et des clients ;
-- catalogue de produits, QR codes, exports, sauvegardes et relances ;
-- migration progressive vers TypeScript/TSX ;
-- utilitaire C pour vérifier l’intégrité d’une sauvegarde SQLite ;
-- workflow GitHub Actions pour builds desktop et Android.
+- type-check TypeScript dédié et modularisation progressive du frontend ;
+- exécution et validation des workflows Windows/Linux/Android/iOS avec les runners et secrets Apple requis.
 
 Pour toute tâche validée : faire une modification ciblée, mettre à jour la documentation concernée, puis lancer le build ou les tests les plus proches du changement.
 

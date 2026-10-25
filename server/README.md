@@ -19,7 +19,7 @@ Guide rapide pour reprendre le backend PayFlow. Lire d’abord le [README racine
 - Les requêtes SQL doivent utiliser des paramètres plutôt que concaténer les valeurs utilisateur.
 - Les erreurs API doivent rester des réponses JSON avec un statut HTTP explicite.
 - Le statut de paiement est manuel dans le flux actuel. Ne pas inventer une confirmation fournisseur ou ajouter un webhook sans demande explicite.
-- PayFlow ne reçoit aucune notification fournisseur ; l’ancien endpoint `GET /api/payments` renvoie une liste vide pour préserver la compatibilité du client.
+- PayFlow ne reçoit aucune notification fournisseur ; `GET /api/payments` renvoie les transactions locales nettes (encaissements saisis et liens marqués payés).
 - Ne jamais afficher ou journaliser les clés API, mots de passe ou cookies.
 - Ne pas ouvrir ni modifier la base locale de l’utilisateur pour un test destructif.
 
@@ -33,6 +33,8 @@ Les routes sont la source de vérité ; relire `routes/api.js` avant d’en ajou
 - Statut manuel : `PATCH /api/payment-links/:id/status` et route de compatibilité `PATCH /api/payment/status`
 - Paramètres fournisseur : `/api/settings/payment`
 - Santé : `/api/health`
+
+Les modules métier ajoutent également les routes `manual-payments`, `customer-profiles`, `catalog`, le cycle de vie et l’historique des `payment-links`, `reminders`, `analytics`, `exports` et `backups`. La liste complète et les paramètres sont décrits dans [`docs/api.md`](../docs/api.md).
 
 Vérifier le middleware effectif : les routes situées après `router.use(authenticate)` sont privées.
 

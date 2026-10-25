@@ -60,13 +60,10 @@
 .landing-brand-mark {
   width: 36px;
   height: 36px;
-  display: grid;
-  place-items: center;
+  display: block;
+  flex: 0 0 auto;
   border-radius: 12px;
-  background: linear-gradient(145deg, #39c8a2, #087e6a);
-  color: #fff;
-  font-size: 24px;
-  font-weight: 800;
+  object-fit: cover;
 }
 
 .brand-dot {
@@ -1159,7 +1156,6 @@
   width: 29px;
   height: 29px;
   border-radius: 9px;
-  font-size: 19px;
 }
 
 .landing-footer .landing-container > div {

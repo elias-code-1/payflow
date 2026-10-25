@@ -39,5 +39,5 @@ export function FinalCtaSection() {
 }
 
 export function LandingFooter() {
-  return <footer className="landing-footer"><div className="landing-container"><a className="landing-brand" href="#accueil"><span className="landing-brand-mark">p</span><span>PayFlow<span className="brand-dot">.</span></span></a><div><a href="#fonctionnalites">Fonctionnalités</a><a href="#faq">FAQ</a><a href="/dashboard.html">Dashboard</a><a href="#telechargements">Téléchargements</a><a href="https://by-josue.mychariow.com/prd_fmngq8xp/checkout" target="_blank" rel="noreferrer">Faire un don</a></div><small>Open source · Local-first · Les frais du prestataire s’appliquent.</small></div></footer>;
+  return <footer className="landing-footer"><div className="landing-container"><a className="landing-brand" href="#accueil"><img className="landing-brand-mark" src="/payflow-icon.svg" alt="" /><span>PayFlow<span className="brand-dot">.</span></span></a><div><a href="#fonctionnalites">Fonctionnalités</a><a href="#faq">FAQ</a><a href="/dashboard.html">Dashboard</a><a href="#telechargements">Téléchargements</a><a href="https://by-josue.mychariow.com/prd_fmngq8xp/checkout" target="_blank" rel="noreferrer">Faire un don</a></div><small>Open source · Local-first · Les frais du prestataire s’appliquent.</small></div></footer>;
 }

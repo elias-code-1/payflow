@@ -9,7 +9,9 @@ const db = new sqlite3.Database(DB_PATH, (err) => {
   }
 });
 
-function runQuery(sql, params = []) {
+let queryQueue = Promise.resolve();
+
+function runRaw(sql, params = []) {
   return new Promise((resolve, reject) => {
     db.run(sql, params, function (err) {
       if (err) reject(err);
@@ -18,13 +20,47 @@ function runQuery(sql, params = []) {
   });
 }
 
-function getQuery(sql, params = []) {
+function getRaw(sql, params = []) {
   return new Promise((resolve, reject) => {
     db.all(sql, params, (err, rows) => {
       if (err) reject(err);
       else resolve(rows);
     });
   });
+}
+
+function enqueueQuery(operation) {
+  const result = queryQueue.then(operation, operation);
+  queryQueue = result.then(() => undefined, () => undefined);
+  return result;
+}
+
+function runQuery(sql, params = []) {
+  return enqueueQuery(() => runRaw(sql, params));
+}
+
+function getQuery(sql, params = []) {
+  return enqueueQuery(() => getRaw(sql, params));
+}
+
+async function runTransaction(work) {
+  const previous = queryQueue;
+  let release;
+  const gate = new Promise((resolve) => { release = resolve; });
+  queryQueue = previous.then(() => gate, () => gate);
+  await previous;
+
+  try {
+    await runRaw('BEGIN IMMEDIATE');
+    const result = await work({ run: runRaw, get: getRaw });
+    await runRaw('COMMIT');
+    return result;
+  } catch (error) {
+    await runRaw('ROLLBACK').catch(() => undefined);
+    throw error;
+  } finally {
+    release();
+  }
 }
 
 function initDatabase() {
@@ -80,26 +116,31 @@ function initDatabase() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL,
       payment_link_id INTEGER,
+      customer_id INTEGER,
       amount REAL NOT NULL,
       currency TEXT NOT NULL DEFAULT 'XOF',
       method TEXT NOT NULL,
       reference TEXT NOT NULL DEFAULT '',
       paid_at DATETIME NOT NULL,
       note TEXT NOT NULL DEFAULT '',
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      status TEXT NOT NULL DEFAULT 'confirmed',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
 
     await runQuery(`CREATE TABLE IF NOT EXISTS customer_profiles (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL,
-      phone_number TEXT NOT NULL,
+      phone_number TEXT NOT NULL DEFAULT '',
       full_name TEXT NOT NULL DEFAULT '',
       email TEXT NOT NULL DEFAULT '',
+      company TEXT NOT NULL DEFAULT '',
+      address TEXT NOT NULL DEFAULT '',
       tags TEXT NOT NULL DEFAULT '',
       notes TEXT NOT NULL DEFAULT '',
+      archived_at DATETIME,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      UNIQUE(user_id, phone_number)
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
 
     await runQuery(`CREATE TABLE IF NOT EXISTS catalog_items (
@@ -107,9 +148,13 @@ function initDatabase() {
       user_id INTEGER NOT NULL,
       name TEXT NOT NULL,
       description TEXT NOT NULL DEFAULT '',
+      sku TEXT NOT NULL DEFAULT '',
       amount REAL NOT NULL,
       currency TEXT NOT NULL DEFAULT 'XOF',
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      category TEXT NOT NULL DEFAULT '',
+      archived_at DATETIME,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
 
     await runQuery(`CREATE TABLE IF NOT EXISTS app_settings (
@@ -141,7 +186,111 @@ function initDatabase() {
     await ensureColumn('payment_links', 'archived_at', 'DATETIME');
     await ensureColumn('leads', 'user_id', 'INTEGER');
     await ensureColumn('newsletter', 'user_id', 'INTEGER');
+
+    await runQuery(`CREATE TABLE IF NOT EXISTS schema_migrations (
+      version INTEGER PRIMARY KEY,
+      name TEXT NOT NULL,
+      applied_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )`);
+    await applyFeatureMigration();
   })();
+}
+
+async function applyFeatureMigration() {
+  const migrations = await getQuery('SELECT version FROM schema_migrations WHERE version = 1');
+  if (migrations.length) return;
+
+  await runQuery('BEGIN IMMEDIATE');
+  try {
+    await ensureColumn('payment_links', 'customer_id', 'INTEGER');
+    await ensureColumn('payment_links', 'catalog_item_id', 'INTEGER');
+    await ensureColumn('payment_links', 'expires_at', 'DATETIME');
+    await ensureColumn('payment_links', 'archived_at', 'DATETIME');
+    await ensureColumn('manual_payments', 'customer_id', 'INTEGER');
+    await ensureColumn('manual_payments', 'status', "TEXT NOT NULL DEFAULT 'confirmed'");
+    await ensureColumn('manual_payments', 'updated_at', 'DATETIME');
+    await ensureColumn('catalog_items', 'sku', "TEXT NOT NULL DEFAULT ''");
+    await ensureColumn('catalog_items', 'category', "TEXT NOT NULL DEFAULT ''");
+    await ensureColumn('catalog_items', 'archived_at', 'DATETIME');
+    await ensureColumn('catalog_items', 'updated_at', 'DATETIME');
+
+    await runQuery(`CREATE TABLE customer_profiles_new (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      phone_number TEXT NOT NULL DEFAULT '',
+      full_name TEXT NOT NULL DEFAULT '',
+      email TEXT NOT NULL DEFAULT '',
+      company TEXT NOT NULL DEFAULT '',
+      address TEXT NOT NULL DEFAULT '',
+      tags TEXT NOT NULL DEFAULT '',
+      notes TEXT NOT NULL DEFAULT '',
+      archived_at DATETIME,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`);
+    await runQuery(`INSERT INTO customer_profiles_new
+      (id, user_id, phone_number, full_name, email, company, address, tags, notes, archived_at, created_at, updated_at)
+      SELECT id, user_id, COALESCE(phone_number, ''), COALESCE(full_name, ''), COALESCE(email, ''),
+        '', '', COALESCE(tags, ''), COALESCE(notes, ''), NULL, created_at, updated_at
+      FROM customer_profiles`);
+    await runQuery('DROP TABLE customer_profiles');
+    await runQuery('ALTER TABLE customer_profiles_new RENAME TO customer_profiles');
+
+    await runQuery(`CREATE TABLE IF NOT EXISTS manual_payment_history (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      manual_payment_id INTEGER NOT NULL,
+      reason TEXT NOT NULL DEFAULT '',
+      old_values TEXT NOT NULL,
+      new_values TEXT NOT NULL,
+      changed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )`);
+    await runQuery(`CREATE TABLE IF NOT EXISTS payment_link_history (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      payment_link_id INTEGER NOT NULL,
+      action TEXT NOT NULL,
+      old_value TEXT NOT NULL DEFAULT '',
+      new_value TEXT NOT NULL DEFAULT '',
+      reason TEXT NOT NULL DEFAULT '',
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )`);
+    await runQuery(`CREATE TABLE IF NOT EXISTS payment_reminders (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      payment_link_id INTEGER NOT NULL,
+      message TEXT NOT NULL,
+      channel TEXT NOT NULL DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'prepared',
+      sent_at DATETIME,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )`);
+    await runQuery(`CREATE TABLE IF NOT EXISTS backup_snapshots (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      checksum TEXT NOT NULL,
+      schema_version INTEGER NOT NULL,
+      size_bytes INTEGER NOT NULL,
+      source TEXT NOT NULL DEFAULT 'manual',
+      payload_json TEXT NOT NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )`);
+
+    await runQuery('CREATE INDEX IF NOT EXISTS idx_customers_user_email ON customer_profiles(user_id, email)');
+    await runQuery('CREATE INDEX IF NOT EXISTS idx_manual_payments_user_date ON manual_payments(user_id, paid_at DESC)');
+    await runQuery('CREATE INDEX IF NOT EXISTS idx_manual_payments_user_link ON manual_payments(user_id, payment_link_id)');
+    await runQuery('CREATE INDEX IF NOT EXISTS idx_payment_links_user_archive ON payment_links(user_id, archived_at, created_at DESC)');
+    await runQuery('CREATE INDEX IF NOT EXISTS idx_payment_links_user_customer ON payment_links(user_id, customer_id)');
+    await runQuery('CREATE INDEX IF NOT EXISTS idx_catalog_user_archive ON catalog_items(user_id, archived_at, name)');
+    await runQuery('CREATE INDEX IF NOT EXISTS idx_reminders_user_link ON payment_reminders(user_id, payment_link_id, created_at DESC)');
+    await runQuery('CREATE INDEX IF NOT EXISTS idx_backup_snapshots_user_date ON backup_snapshots(user_id, created_at DESC)');
+    await runQuery("INSERT INTO schema_migrations (version, name) VALUES (1, 'approved-business-features')");
+    await runQuery('COMMIT');
+  } catch (error) {
+    await runQuery('ROLLBACK');
+    throw error;
+  }
 }
 
 async function ensureColumn(table, column, type) {
@@ -151,4 +300,4 @@ async function ensureColumn(table, column, type) {
   }
 }
 
-module.exports = { db, runQuery, getQuery, initDatabase };
+module.exports = { db, runQuery, getQuery, runTransaction, initDatabase };

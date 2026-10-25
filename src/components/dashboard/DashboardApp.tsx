@@ -3,13 +3,14 @@ import type { FormEvent, ReactNode } from "react";
 import { gsap } from "gsap";
 import { api } from "../../services/api";
 import { createIdentifier } from "../../utils/formatters";
-import { getTransactionRows } from "../../utils/paymentAnalytics";
 import AuthPage from "../auth/AuthPage";
-import DashboardLayout from "./DashboardLayout";
+import DashboardLayout, { navItems } from "./DashboardLayout";
+import DashboardPageBoundary from "./DashboardPageBoundary";
 import PaymentModal from "./PaymentModal";
 import HelpCommunityPage from "./HelpCommunityPage";
-import { OverviewPage, TransactionsPage, LinksPage, CustomersPage, AnalyticsPage, SettingsPage } from "./DashboardPages";
-import type { CurrencyCode, Customer, DashboardPageId, DashboardStats, PaymentLink, PaymentLinkStatus, User } from "../../types";
+import { OverviewPage, TransactionsPage, SettingsPage } from "./DashboardPages";
+import { AdvancedAnalyticsPage, BackupsPage, CatalogPage, CustomersPage, ExportsPage, LinkManagementPage, ManualPaymentsPage, QRCodesPage, RemindersPage } from "./FeaturePages";
+import type { CatalogItem, CurrencyCode, Customer, CustomerProfile, DashboardPageId, DashboardStats, PaymentLink, PaymentLinkStatus, TransactionRow, User } from "../../types";
 
 const EMPTY_STATS: DashboardStats = { payments: 0, completed: 0, links: 0, pending: 0, customers: 0, revenue: 0 };
 
@@ -24,9 +25,13 @@ export default function DashboardApp() {
   const [page, setPage] = useState<DashboardPageId>("overview");
   const [stats, setStats] = useState<DashboardStats>(EMPTY_STATS);
   const [links, setLinks] = useState<PaymentLink[]>([]);
+  const [transactions, setTransactions] = useState<TransactionRow[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [customerProfiles, setCustomerProfiles] = useState<CustomerProfile[]>([]);
+  const [catalogItems, setCatalogItems] = useState<CatalogItem[]>([]);
   const [configured, setConfigured] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
+  const [paymentPrefill, setPaymentPrefill] = useState<{ description?: string; phone?: string; amount?: number; currency?: CurrencyCode; customerId?: number; catalogItemId?: number }>({});
   const [busy, setBusy] = useState(false);
   const [savingSettings, setSavingSettings] = useState(false);
   const [notice, setNotice] = useState("");
@@ -36,15 +41,21 @@ export default function DashboardApp() {
   const pageRef = useRef<HTMLDivElement | null>(null);
 
   async function refreshData(): Promise<void> {
-    const [nextStats, nextLinks, nextCustomers, nextSettings] = await Promise.all([
+    const [nextStats, nextLinks, nextTransactions, nextCustomers, nextProfiles, nextCatalog, nextSettings] = await Promise.all([
       api.getStats(),
       api.getPaymentLinks(),
+      api.getPayments(),
       api.getCustomers(),
+      api.getCustomerProfiles(),
+      api.getCatalogItems(),
       api.getPaymentSettings(),
     ]);
     setStats(nextStats);
     setLinks(nextLinks);
+    setTransactions(nextTransactions);
     setCustomers(nextCustomers);
+    setCustomerProfiles(nextProfiles);
+    setCatalogItems(nextCatalog);
     setConfigured(nextSettings.configured);
   }
 
@@ -76,16 +87,16 @@ export default function DashboardApp() {
 
   useEffect(() => {
     if (pageRef.current) {
+      gsap.killTweensOf(pageRef.current);
       gsap.fromTo(pageRef.current, { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.3, ease: "power2.out" });
     }
   }, [page]);
 
   const filteredTransactions = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
-    const transactions = getTransactionRows(links);
     if (!normalizedQuery) return transactions;
     return transactions.filter((payment) => `${payment.identifier || ""} ${payment.tx_reference || ""} ${payment.phone_number || ""} ${payment.payment_method || ""}`.toLowerCase().includes(normalizedQuery));
-  }, [links, query]);
+  }, [transactions, query]);
 
   const filteredLinks = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -112,6 +123,9 @@ export default function DashboardApp() {
         currency,
         network: String(formData.get("network") || "TMONEY"),
         identifier: createIdentifier(),
+        customer_id: formData.get("customerId") ? Number(formData.get("customerId")) : null,
+        catalog_item_id: formData.get("catalogItemId") ? Number(formData.get("catalogItemId")) : null,
+        expires_at: formData.get("expiresAt") ? new Date(String(formData.get("expiresAt"))).toISOString() : null,
       });
       setShowPayment(false);
       setPage("links");
@@ -157,9 +171,9 @@ export default function DashboardApp() {
     }
   }
 
-  async function updateLinkStatus(id: number, status: PaymentLinkStatus): Promise<void> {
+  async function updateLinkStatus(id: number, status: PaymentLinkStatus, reason = ""): Promise<void> {
     try {
-      const result = await api.updatePaymentLinkStatus(id, status);
+      const result = await api.updatePaymentLinkStatus(id, status, reason);
       setLinks((current) => current.map((link) => link.id === id
         ? { ...link, status: result.status, status_updated_at: new Date().toISOString() }
         : link));
@@ -179,33 +193,54 @@ export default function DashboardApp() {
       setStats(EMPTY_STATS);
       setLinks([]);
       setCustomers([]);
+      setCustomerProfiles([]);
+      setCatalogItems([]);
+      setTransactions([]);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "La déconnexion a échoué.");
       setNoticeError(true);
     }
   }
 
+  function openPayment(prefill: typeof paymentPrefill = {}): void {
+    setPaymentPrefill(prefill);
+    setShowPayment(true);
+  }
+
   if (!authReady) return <main className="auth-shell"><div className="auth-loading">Chargement de votre espace local…</div></main>;
   if (!user) return <AuthPage hasAccounts={hasAccounts} onAuthenticated={async (nextUser) => { setHasAccounts(true); setUser(nextUser); setNotice(""); await refreshData(); }} />;
 
+  const reportNotice = (message: string, isError = false) => { setNotice(message); setNoticeError(isError); };
+  const pageLabel = page === "settings" ? "Paramètres" : page === "support" ? "Aide & communauté" : navItems.find((item) => item.id === page)?.label || "Vue d’ensemble";
   let content: ReactNode;
-  if (page === "overview") content = <OverviewPage stats={stats} transactions={filteredTransactions} links={links} range={range} onRangeChange={setRange} onCreate={() => setShowPayment(true)} onNavigate={setPage} />;
-  if (page === "transactions") content = <TransactionsPage transactions={filteredTransactions} />;
-  if (page === "links") content = <LinksPage links={filteredLinks} onCopy={copyLink} onCreate={() => setShowPayment(true)} onStatusChange={updateLinkStatus} />;
-  if (page === "customers") content = <CustomersPage customers={customers.filter((customer) => customer.phone_number.toLowerCase().includes(query.trim().toLowerCase()))} />;
-  if (page === "analytics") content = <AnalyticsPage stats={stats} links={links} />;
-  if (page === "settings") content = <SettingsPage configured={configured} saving={savingSettings} onSave={saveSettings} />;
-  if (page === "support") content = <HelpCommunityPage />;
+  switch (page) {
+    case "overview": content = <OverviewPage stats={stats} configured={configured} transactions={filteredTransactions} allTransactions={transactions} range={range} onRangeChange={setRange} onCreate={() => openPayment()} onNavigate={setPage} />; break;
+    case "transactions": content = <TransactionsPage transactions={filteredTransactions} />; break;
+    case "links": content = <LinkManagementPage links={filteredLinks} search={query} onCopy={copyLink} onStatusChange={updateLinkStatus} onRefresh={refreshData} onNotice={reportNotice} />; break;
+    case "manualPayments": content = <ManualPaymentsPage search={query} onRefresh={refreshData} onNotice={reportNotice} />; break;
+    case "customers": content = <CustomersPage search={query} onRefresh={refreshData} onNotice={reportNotice} onCreateLink={(customer) => openPayment({ description: customer.full_name || customer.company || "Commande client", phone: customer.phone_number, customerId: customer.id })} />; break;
+    case "catalog": content = <CatalogPage search={query} onRefresh={refreshData} onNotice={reportNotice} onCreateLink={(item) => openPayment({ description: item.name, amount: item.amount, currency: item.currency, catalogItemId: item.id })} />; break;
+    case "qrCodes": content = <QRCodesPage links={links} onNotice={reportNotice} />; break;
+    case "exports": content = <ExportsPage onNotice={reportNotice} />; break;
+    case "backups": content = <BackupsPage onRefresh={refreshData} onNotice={reportNotice} />; break;
+    case "analytics": content = <AdvancedAnalyticsPage onNotice={reportNotice} />; break;
+    case "reminders": content = <RemindersPage search={query} onNotice={reportNotice} />; break;
+    case "settings": content = <SettingsPage configured={configured} saving={savingSettings} onSave={saveSettings} />; break;
+    case "support": content = <HelpCommunityPage />; break;
+    default: content = <section className="panel page-error"><h1>Cette page n’existe pas.</h1><button className="button button-primary" onClick={() => setPage("overview")}>Retour à la vue d’ensemble</button></section>;
+  }
 
   return (
     <>
       <DashboardLayout page={page} onNavigate={(nextPage: DashboardPageId) => { setPage(nextPage); setNotice(""); }} query={query} onQueryChange={setQuery} user={user} onLogout={logout}>
         <div className="dashboard-content" ref={pageRef}>
           {notice && <div className={`notice ${noticeError ? "notice-error" : ""}`} role={noticeError ? "alert" : "status"}><span>{notice.startsWith("https://") ? <><span>Lien prêt : </span><a className="payment-link" href={notice} target="_blank" rel="noreferrer">Ouvrir le lien de paiement</a><small className="payment-link-url">{notice}</small></> : notice}</span><button onClick={() => setNotice("")} aria-label="Fermer le message"><span aria-hidden="true">×</span></button></div>}
-          {content}
+          <DashboardPageBoundary key={page} pageLabel={pageLabel} onReturnToOverview={() => setPage("overview")}>
+            {content}
+          </DashboardPageBoundary>
         </div>
       </DashboardLayout>
-      {showPayment && <PaymentModal busy={busy} onClose={() => setShowPayment(false)} onSubmit={createLink} />}
+      {showPayment && <PaymentModal busy={busy} onClose={() => setShowPayment(false)} onSubmit={createLink} customers={customerProfiles} catalogItems={catalogItems} initialValues={paymentPrefill} />}
     </>
   );
 }

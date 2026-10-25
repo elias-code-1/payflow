@@ -37,7 +37,7 @@ export default function AuthPage({ hasAccounts, onAuthenticated }: AuthPageProps
   return (
     <main className="auth-shell">
       <section className="auth-card">
-        <a className="auth-brand" href="/"><span className="brand-symbol">p</span><span>payflow<span>.</span></span></a>
+        <a className="auth-brand" href="/"><img className="brand-symbol" src="/payflow-icon.svg" alt="" /><span>payflow<span>.</span></span></a>
         <div className="eyebrow">TABLEAU DE BORD LOCAL</div>
         <h1>{mode === "register" ? "Créer votre espace" : "Ravi de vous revoir"}</h1>
         <p>Chaque compte conserve sa propre clé API et ses propres données dans SQLite.</p>

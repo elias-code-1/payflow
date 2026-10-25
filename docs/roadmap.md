@@ -10,16 +10,19 @@
 - Documentation de base
 
 ## Lot 2 — gestion avancée
-- Encaissements manuels
-- Clients détaillés
-- Gestion du catalogue
-- Gestion avancée des liens
+- Encaissements manuels — première implémentation présente
+- Clients détaillés — première implémentation présente
+- Gestion du catalogue — première implémentation présente
+- Gestion avancée des liens — première implémentation présente
 
 ## Lot 3 — reporting
-- QR codes
-- Export CSV/JSON
-- Analytics avancées
-- Relances clients
+- QR codes — première implémentation présente
+- Export CSV/JSON — première implémentation présente
+- Sauvegardes JSON par compte — première implémentation présente
+- Analytics avancées — première implémentation présente
+- Relances manuelles — première implémentation présente
+
+Les modules de lots 2 et 3 et les derniers correctifs n’ont pas encore été compilés ou testés. Les utilitaires facultatifs Python et C sont maintenant présents dans `tools/` et exposés dans le panneau Sauvegardes.
 
 ## Lot 4 — production et migration
 - PostgreSQL ou base distante stable

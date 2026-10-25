@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title id="title">PayFlow</title>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b5149" />
+      <stop offset="1" stop-color="#087d68" />
+    </linearGradient>
+    <linearGradient id="flow" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#a8f1d4" />
+      <stop offset="1" stop-color="#57d6ae" />
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="118" fill="url(#background)" />
+  <circle cx="256" cy="256" r="190" fill="none" stroke="#fff" stroke-opacity=".09" stroke-width="2" />
+  <path d="M166 394V119h137c76 0 122 43 122 111s-46 111-122 111h-70" fill="none" stroke="#f4fff9" stroke-linecap="round" stroke-linejoin="round" stroke-width="43" />
+  <path d="M240 231h111m-34-34 34 34-34 34" fill="none" stroke="url(#flow)" stroke-linecap="round" stroke-linejoin="round" stroke-width="22" />
+  <circle cx="166" cy="394" r="22" fill="#8ae9c7" />
+</svg>

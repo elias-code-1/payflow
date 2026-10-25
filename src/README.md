@@ -17,7 +17,9 @@ Le frontend est migré en TypeScript/TSX avec la configuration de base dans `../
 
 ## Flux du dashboard
 
-`DashboardApp.tsx` récupère la session, charge statistiques, transactions calculées depuis les liens payés, clients et configuration API, puis affiche la vue sélectionnée. Les changements de statut déclenchent un rafraîchissement des données. Examiner ce flux avant de déplacer l’état ou de créer une nouvelle page.
+`DashboardApp.tsx` récupère la session et les données du dashboard puis affiche les pages métier. `FeaturePages.tsx` contient les écrans d’encaissements, clients, catalogue, cycle de vie des liens, QR codes, exports, sauvegardes, analytique et relances. `DashboardPageBoundary.tsx` protège le rendu de la page sélectionnée et propose un retour à la vue d’ensemble en cas d’erreur. Les appels typés sont centralisés dans `services/api.ts`; les données réutilisées par l’écran parent sont rafraîchies après une modification. Examiner ce flux avant de déplacer l’état ou de créer une nouvelle page.
+
+`data/reminderTemplates.ts` contient la bibliothèque de 224 messages en français. La page Sauvegardes privilégie le téléchargement et la restauration guidés; les commandes Python/C sont regroupées dans ses options avancées. La navigation mobile utilise une liste de pages avec libellés plutôt qu’une barre d’icônes sans texte.
 
 ## Principes UX et métier
 
@@ -25,6 +27,10 @@ Le frontend est migré en TypeScript/TSX avec la configuration de base dans `../
 - Afficher clairement les erreurs comme erreurs et les confirmations comme succès.
 - Les liens sont générés pour être copiés/partagés ; ne pas déclencher un envoi direct automatique.
 - Les mises à jour `paid` dans l’interface restent manuelles et locales.
+- Les transactions et graphiques gardent les devises séparées; un encaissement confirmé lié à un lien payé remplace le lien dans les agrégats.
+- Les QR codes sont générés localement. Les liens archivés ou expirés peuvent toujours être actifs chez le fournisseur.
+- Les exports masquent le paramètre `token` des URL; les sauvegardes JSON du compte peuvent conserver ces URL et ne sont pas chiffrées.
+- Le panneau Sauvegardes montre le code Python/C en plus des commandes; ces scripts locaux ne sont jamais exécutés par le serveur.
 - Ne jamais inclure la clé API dans le frontend, les URLs de navigation ou les logs.
 - Garder les textes utilisateur en français, conformément à l’interface existante.
 

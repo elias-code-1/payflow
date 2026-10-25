@@ -5,7 +5,7 @@ export default function LandingHeader() {
   return (
     <header className="landing-header">
       <div className="landing-container landing-nav">
-        <a className="landing-brand" href="#accueil"><span className="landing-brand-mark">p</span><span>PayFlow<span className="brand-dot">.</span></span></a>
+        <a className="landing-brand" href="#accueil"><img className="landing-brand-mark" src="/payflow-icon.svg" alt="" /><span>PayFlow<span className="brand-dot">.</span></span></a>
         <button className="landing-menu-button" aria-label={menuOpen ? "Fermer le menu" : "Ouvrir le menu"} aria-expanded={menuOpen} onClick={() => setMenuOpen(!menuOpen)}>{menuOpen ? "×" : "☰"}</button>
         <nav className={menuOpen ? "is-open" : ""} aria-label="Navigation du site">
           <a href="#fonctionnalites" onClick={() => setMenuOpen(false)}>Fonctionnalités</a>

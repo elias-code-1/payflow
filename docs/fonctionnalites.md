@@ -1,6 +1,6 @@
 # Spécification fonctionnelle PayFlow
 
-> **État :** les fonctionnalités ci-dessous sont approuvées pour conception. Cette page est une spécification : les modules décrits comme « à développer » ne sont pas réputés implémentés parce qu’ils apparaissent ici. Aucun code n’est modifié par cette spécification.
+> **État :** une première implémentation des neuf modules est présente dans le code. Les critères ci-dessous restent la spécification; ils ne constituent pas une validation de compilation ou de fonctionnement. Le build et les tests n’ont pas été exécutés pour cette livraison.
 
 ## 1. Objectif du produit
 
@@ -22,7 +22,7 @@ Le fonctionnement est volontairement **manuel** : PayFlow ne configure pas de we
 
 ## 3. État actuel du socle
 
-Le socle existant comprend une landing page, un dashboard React/Vite, une API Express, une base SQLite, des comptes locaux, des liens de paiement, des statuts manuels et des statistiques locales. Le tableau ci-dessous décrit les **nouveaux modules approuvés**; leur implémentation doit être vérifiée dans le code avant d’être annoncée comme disponible.
+Le socle comprend une landing page, un dashboard React/Vite, une API Express, une base SQLite et des comptes locaux. Une migration SQLite versionnée ajoute les champs et tables des modules. Toutes les opérations métier documentées ci-dessous sont limitées au compte connecté.
 
 ## 4. Modules approuvés
 
@@ -203,11 +203,19 @@ Chaque ligne correspond à une page fonctionnelle indépendante, avec sous-navig
 
 L’accès à la déconnexion et au lien de don fait partie de la navigation générale du dashboard; ce sont des éléments transversaux et non une des neuf pages métier.
 
-## 6. Migration TypeScript
+## 6. Frontend React et TypeScript
 
-La migration vers TypeScript doit être progressive et préserver les contrats API et les données SQLite. Définir des types partagés pour utilisateur public (sans secret), lien, encaissement, client, article, paramètres, statuts et erreurs API. Activer le contrôle strict progressivement; convertir une page ou un module à la fois (`.jsx` vers `.tsx`, `.js` vers `.ts`) et ne pas masquer les erreurs par `any` généralisé. Les scripts Python et C restent des outils autonomes.
+Toutes les vues du dashboard sont des composants React écrits en TSX, montés depuis `src/dashboard/main.tsx`. `dashboard.html` est uniquement la coquille d’entrée requise par Vite : elle fournit le nœud `#root` et charge l’application. La navigation entre les pages est gérée dans React. Le backend reste en JavaScript.
 
-## 7. Ordre d’implémentation proposé
+Une frontière d’erreur encadre la page courante pour afficher une récupération dans le dashboard lorsqu’un composant échoue au rendu. Les montants de paiement issus d’anciens liens sans `display_amount` sont présentés en XOF, car `amount` contient le montant transmis au prestataire; les montants de devises différentes restent séparés.
+
+## 7. Outils locaux Python et C
+
+La page Sauvegardes expose et permet de télécharger les sources `tools/backup_snapshot.py` et `tools/backup_verify.c`. Python crée une copie cohérente par l’API SQLite, contrôle l’intégrité et les clés étrangères, écrit un sidecar SHA-256 et applique une rétention limitée aux instantanés qu’il a créés. L’option `--dry-run` ne modifie aucun fichier. L’utilitaire C vérifie un fichier SQLite en lecture seule.
+
+Ces scripts sont facultatifs, ne sont pas lancés par le serveur et ne sont pas nécessaires au dashboard. Leurs commandes, dépendances et limites sont décrites dans [`tools/README.md`](../tools/README.md). Aucun chiffrement des fichiers de sauvegarde n’est appliqué.
+
+## 8. Ordre d’implémentation proposé
 
 1. Formaliser modèles, migrations et contrats; créer d’abord les tests d’isolation de compte et de non-double comptage.
 2. Encaissements manuels et règles communes de calcul.
@@ -216,11 +224,27 @@ La migration vers TypeScript doit être progressive et préserver les contrats A
 5. Exports, puis sauvegardes/restauration et outils Python/C.
 6. Analytique basée sur les définitions stabilisées.
 7. Relances manuelles.
-8. Poursuivre la migration TypeScript module par module.
+8. Poursuivre le contrôle de types et la modularisation du frontend.
+
+## 9. État de la première implémentation
+
+| Module | Couverture présente | Limites connues |
+| --- | --- | --- |
+| Encaissements | Saisie, édition avec motif, annulation/réactivation, filtres et historique | Les statuts sont des déclarations du marchand. |
+| Clients | Fiches, activité, archivage, anonymisation/suppression protégée, doublons, fusion et création de lien | La fusion conserve les coordonnées de la fiche cible; elle ne combine pas automatiquement les notes/champs des sources. |
+| Catalogue | CRUD, catégories, archivage, duplication, ventes et création de lien | Les liens existants gardent leur instantané. |
+| Liens | Filtres, fiche, historique, duplication, expiration/archivage local et archivage groupé | Les changements d’état chez le fournisseur ne sont pas effectués. |
+| QR codes | Génération locale PNG/SVG depuis une URL enregistrée | Le QR contient l’URL externe; l’archive et l’expiration locales ne la désactivent pas. |
+| Exports | CSV protégé contre les formules, JSON par catégorie, filtres, aperçu et exclusion facultative des données sensibles | Le paramètre `token` est toujours masqué et le téléphone dans l’URL l’est par défaut; les URL exportées ne sont pas directement utilisables. |
+| Sauvegardes | Téléchargement de la copie en un clic, sélection puis validation avant restauration, historique simple; outils Python/C dans une rubrique avancée | La sauvegarde du dashboard est par compte, pas une image brute de la base. Les fichiers peuvent inclure des URLs avec token fournisseur et ne sont pas chiffrés. Les scripts locaux restent facultatifs. |
+| Analytique | Périodes 7/30/90 jours et personnalisées, revenus par devise, tendances journalières et mensuelles, ventilation et comparaison | Les dates sont calculées en UTC; aucun fuseau configurable n’est prévu. |
+| Relances | 224 modèles en français, recherche par style/texte, personnalisation, copie, ouverture de WhatsApp et historique manuel | Aucun message n’est transmis automatiquement; l’utilisateur valide lui-même l’envoi dans son application de messagerie. |
+
+Les sauvegardes JSON sont limitées au compte connecté. La restauration remplace uniquement ses données métier, crée une sauvegarde de sécurité préalable et refuse les identifiants de lien qui entreraient en collision avec un autre compte. Les fichiers ne sont ni chiffrés ni signés.
 
 L’ordre peut être ajusté si une dépendance technique est découverte, mais les invariants de la section 2 ne changent pas.
 
-## 8. Hors périmètre explicite
+## 10. Hors périmètre explicite
 
 - Webhooks, callbacks ou réception de notifications de paiement.
 - Validation automatique de paiement ou affirmation qu’un client a payé sans action du marchand.
