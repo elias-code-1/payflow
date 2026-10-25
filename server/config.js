@@ -8,7 +8,21 @@ const ENV_EXAMPLE_PATH = path.join(ROOT_DIR, '.env.example');
 
 dotenv.config({ path: ENV_FILE_PATH });
 
-const DB_PATH = process.env.PAYFLOW_DB_PATH || path.join(ROOT_DIR, 'database.sqlite');
+function resolveWritableDbPath() {
+  const fallbackPath = path.join(ROOT_DIR, 'database.sqlite');
+  const configured = (process.env.PAYFLOW_DB_PATH || '').trim();
+  if (!configured) return fallbackPath;
+  try {
+    fs.mkdirSync(path.dirname(configured), { recursive: true });
+    fs.accessSync(path.dirname(configured), fs.constants.W_OK);
+    return configured;
+  } catch (err) {
+    console.warn(`[PayFlow] Chemin PAYFLOW_DB_PATH (${configured}) inaccessible en écriture (${err.message}), repli sur ${fallbackPath}`);
+    return fallbackPath;
+  }
+}
+
+const DB_PATH = resolveWritableDbPath();
 
 function readParsedEnv(filePath) {
   try {
@@ -85,13 +99,27 @@ function getDownloadLinks() {
   };
 }
 
+function resolveWritableBackupDir(dbPath) {
+  const fallbackDir = path.join(path.dirname(dbPath), 'backups');
+  const configured = (process.env.PAYFLOW_BACKUP_DIR || '').trim();
+  if (!configured) return fallbackDir;
+  try {
+    fs.mkdirSync(configured, { recursive: true });
+    fs.accessSync(configured, fs.constants.W_OK);
+    return configured;
+  } catch (err) {
+    console.warn(`[PayFlow] Dossier PAYFLOW_BACKUP_DIR (${configured}) inaccessible en écriture (${err.message}), repli sur ${fallbackDir}`);
+    return fallbackDir;
+  }
+}
+
 const initialLinks = getDownloadLinks();
 
 module.exports = {
   PORT: Number(process.env.PORT) || 3000,
   HOST: process.env.HOST || '0.0.0.0',
   DB_PATH,
-  BACKUP_DIR: process.env.PAYFLOW_BACKUP_DIR || path.join(path.dirname(DB_PATH), 'backups'),
+  BACKUP_DIR: resolveWritableBackupDir(DB_PATH),
   PAYGATE_API_TOKEN: process.env.PAYGATE_API_TOKEN || '',
   getDownloadLinks,
   RELEASES_URL: initialLinks.releasesUrl,

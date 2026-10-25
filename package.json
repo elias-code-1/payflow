@@ -6,7 +6,7 @@
   "author": "PayFlow Contributors <noreply@users.noreply.github.com>",
   "desktopName": "PayFlow",
   "type": "commonjs",
-  "main": "desktop/main.cjs",
+  "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "dev": "npm run build && node server.js",
@@ -28,17 +28,20 @@
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "sqlite3": "^6.0.1",
-    "three": "^0.186.1"
+    "three": "^0.186.1",
+    "vite": "^8.3.5"
   },
   "devDependencies": {
     "@capacitor/cli": "^7.4.3",
     "electron": "^38.0.0",
-    "electron-builder": "^26.0.12",
-    "vite": "^8.3.5"
+    "electron-builder": "^26.0.12"
   },
   "build": {
     "appId": "org.payflow.local",
     "productName": "PayFlow",
+    "extraMetadata": {
+      "main": "desktop/main.cjs"
+    },
     "asar": true,
     "asarUnpack": [
       "node_modules/sqlite3/**"

@@ -1,3 +1,9 @@
+if (!process.versions || !process.versions.electron) {
+  console.log('[PayFlow] Exécution Node.js serveur détectée (hors Electron) : démarrage de server.js…');
+  require('../server.js');
+  return;
+}
+
 const { app, BrowserWindow, shell } = require('electron');
 const fs = require('fs');
 const path = require('path');
