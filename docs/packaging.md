@@ -31,25 +31,25 @@ Le wrapper mobile charge le dashboard serveur défini par `CAPACITOR_SERVER_URL`
 
 Les workflows se trouvent dans `.github/workflows/` :
 
-- `build-desktop.yml` produit l’installateur Windows NSIS, l’EXE portable et les formats Linux/BSD pris en charge sur Ubuntu par electron-builder : AppImage, DEB, RPM, Snap, Flatpak, Pacman, APK Alpine, FreeBSD et archives 7z, ZIP, tar.xz, tar.lz, tar.gz et tar.bz2.
-- `build-mobile.yml` produit un APK Android debug sur les push, pull requests et lancements manuels. Le job iOS ne s’exécute qu’au lancement manuel du workflow et exporte un IPA signé pour App Store Connect.
+- `build-desktop.yml` produit l’installateur Windows NSIS, l’EXE portable et les formats Linux/BSD pris en charge sur Ubuntu par electron-builder : AppImage, DEB, RPM, Snap, Flatpak, Pacman, APK Alpine, FreeBSD et archives 7z, tar.xz, tar.lz, tar.gz et tar.bz2.
+- `build-mobile.yml` produit automatiquement `payflow-android.apk` et `PayFlow-iOS.ipa` sur les push (`main` et tags `v*`), pull requests et lancements manuels.
 
-Les fichiers sont téléchargeables dans la section **Artifacts** de chaque exécution et sont conservés 14 jours. Ces workflows ne publient pas automatiquement sur une boutique ni dans une GitHub Release.
+Sur les push et tags, chaque fichier généré est publié individuellement (sans enveloppe `.zip`) dans la **GitHub Release** correspondante (`v1.0.0`, etc.).
 
-### Signature iOS
+### Signature iOS (optionnelle)
 
-Avant de lancer manuellement le workflow mobile, ajouter ces secrets dans **Settings → Secrets and variables → Actions** :
+Sans configuration supplémentaire, le job iOS génère automatiquement un `PayFlow-iOS.ipa` ad-hoc prêt à être installé via **AltStore**, **Sideloadly** ou **TrollStore**.
+
+Pour générer un IPA signé officiellement pour **App Store Connect / TestFlight**, ajouter ces 4 secrets dans **Settings → Secrets and variables → Actions** :
 
 - `IOS_CERTIFICATE_BASE64` : certificat Apple Distribution au format `.p12`, encodé en Base64.
 - `IOS_CERTIFICATE_PASSWORD` : mot de passe du fichier `.p12`.
 - `IOS_PROVISIONING_PROFILE_BASE64` : profil App Store Connect encodé en Base64, associé à l’identifiant `org.payflow.local`.
 - `IOS_TEAM_ID` : identifiant de l’équipe Apple Developer.
 
-La signature iOS nécessite le certificat et le profil de provisioning Apple appropriés. Le workflow installe le projet Capacitor iOS uniquement pendant le build.
-
 ### Configuration mobile actuelle
 
-`capacitor.config.ts` lit `CAPACITOR_SERVER_URL` pour Android et iOS. Sans variable, il utilise l’URL de développement `http://10.0.2.2:3001/dashboard.html`, réservée à l’émulateur Android. Définir la variable GitHub Actions avec l’URL HTTPS Render avant de distribuer un APK ou un IPA.
+`capacitor.config.ts` lit `CAPACITOR_SERVER_URL` (depuis les variables/secrets GitHub Actions, `.env` ou `.env.example`) pour Android et iOS. Définir `CAPACITOR_SERVER_URL` avec l’URL HTTPS Render (ex. `https://payflow.onrender.com`) pour connecter directement l’APK et l’IPA au serveur distant.
 
 ## Limitations
 

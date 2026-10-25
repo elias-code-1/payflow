@@ -33,8 +33,10 @@
   },
   "devDependencies": {
     "@capacitor/cli": "^7.4.3",
+    "@capacitor/ios": "^7.4.3",
     "electron": "^38.0.0",
-    "electron-builder": "^26.0.12"
+    "electron-builder": "^26.0.12",
+    "typescript": "^5.8.3"
   },
   "build": {
     "appId": "org.payflow.local",

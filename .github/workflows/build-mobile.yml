@@ -16,7 +16,7 @@ jobs:
     name: Android APK (direct file, no ZIP)
     runs-on: ubuntu-latest
     env:
-      CAPACITOR_SERVER_URL: ${{ vars.CAPACITOR_SERVER_URL }}
+      CAPACITOR_SERVER_URL: ${{ vars.CAPACITOR_SERVER_URL || secrets.CAPACITOR_SERVER_URL }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -27,16 +27,38 @@ jobs:
           node-version: 22
 
       - name: Set up Java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 21
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Configure Android SDK and install API 35 packages
+        run: |
+          ANDROID_SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          echo "ANDROID_HOME=$ANDROID_SDK" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK" >> "$GITHUB_ENV"
 
-      - name: Install Android SDK packages
-        run: sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+          SDKMANAGER=""
+          for candidate in \
+            "$ANDROID_SDK/cmdline-tools/latest/bin/sdkmanager" \
+            "$ANDROID_SDK"/cmdline-tools/*/bin/sdkmanager \
+            "$(command -v sdkmanager || true)"; do
+            if [ -n "$candidate" ] && [ -x "$candidate" ]; then
+              SDKMANAGER="$candidate"
+              break
+            fi
+          done
+
+          if [ -z "$SDKMANAGER" ]; then
+            echo "::error::sdkmanager introuvable dans $ANDROID_SDK"
+            exit 1
+          fi
+
+          echo "$(dirname "$SDKMANAGER")" >> "$GITHUB_PATH"
+          echo "$ANDROID_SDK/platform-tools" >> "$GITHUB_PATH"
+
+          yes | "$SDKMANAGER" --sdk_root="$ANDROID_SDK" --licenses >/dev/null || true
+          "$SDKMANAGER" --sdk_root="$ANDROID_SDK" "platform-tools" "platforms;android-35" "build-tools;35.0.0"
 
       - name: Install dependencies
         run: npm ci || npm install
@@ -44,12 +66,14 @@ jobs:
       - name: Build Android APK
         run: |
           npm run build
+          rm -rf android
           npx cap add android
           npx cap sync android
-          cd android
-          ./gradlew assembleDebug
-          cd ..
-          cp android/app/build/outputs/apk/debug/*.apk ./payflow-android.apk
+          chmod +x android/gradlew
+          (cd android && ./gradlew assembleDebug --no-daemon)
+          APK_SOURCE=$(find android/app/build/outputs/apk/debug -maxdepth 2 -name "*.apk" | head -n 1)
+          test -n "$APK_SOURCE" && test -f "$APK_SOURCE"
+          cp "$APK_SOURCE" ./payflow-android.apk
           ls -lh ./payflow-android.apk
 
       - name: Publish direct APK file to GitHub Release (no ZIP)
@@ -64,33 +88,25 @@ jobs:
             TAG="v${VERSION}"
           fi
           gh release view "$TAG" >/dev/null 2>&1 || \
-            gh release create "$TAG" --title "PayFlow $TAG" --notes "Téléchargements directs PayFlow : chaque fichier (.exe, .AppImage, .deb, .rpm, .apk…) est disponible individuellement sans archive ZIP." --latest || true
-          gh release upload "$TAG" ./payflow-android.apk --clobber
+            gh release create "$TAG" --title "PayFlow $TAG" --notes "Téléchargements directs PayFlow : chaque fichier (.exe, .AppImage, .deb, .rpm, .apk, .ipa…) est disponible individuellement sans archive ZIP." --latest || true
+          for attempt in 1 2 3; do
+            gh release upload "$TAG" ./payflow-android.apk --clobber && break
+            sleep 3
+          done
           {
             echo "### Fichier Android APK disponible directement (sans ZIP)"
             echo "- [payflow-android.apk](https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/payflow-android.apk)"
           } >> "$GITHUB_STEP_SUMMARY"
 
   ios:
-    name: Signed iOS IPA (direct file, no ZIP)
-    if: github.event_name == 'workflow_dispatch'
+    name: iOS IPA (direct file, no ZIP)
     runs-on: macos-15
     env:
       IOS_BUNDLE_ID: org.payflow.local
-      CAPACITOR_SERVER_URL: ${{ vars.CAPACITOR_SERVER_URL }}
+      CAPACITOR_SERVER_URL: ${{ vars.CAPACITOR_SERVER_URL || secrets.CAPACITOR_SERVER_URL }}
+      LANG: en_US.UTF-8
+      LC_ALL: en_US.UTF-8
     steps:
-      - name: Check Apple signing secrets
-        env:
-          IOS_CERTIFICATE_BASE64: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
-          IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
-          IOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
-          IOS_TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
-        run: |
-          test -n "$IOS_CERTIFICATE_BASE64" || { echo "::error::Add IOS_CERTIFICATE_BASE64 to GitHub Actions secrets."; exit 1; }
-          test -n "$IOS_CERTIFICATE_PASSWORD" || { echo "::error::Add IOS_CERTIFICATE_PASSWORD to GitHub Actions secrets."; exit 1; }
-          test -n "$IOS_PROVISIONING_PROFILE_BASE64" || { echo "::error::Add IOS_PROVISIONING_PROFILE_BASE64 to GitHub Actions secrets."; exit 1; }
-          test -n "$IOS_TEAM_ID" || { echo "::error::Add IOS_TEAM_ID to GitHub Actions secrets."; exit 1; }
-
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -99,18 +115,56 @@ jobs:
         with:
           node-version: 22
 
-      - name: Install dependencies and iOS platform
-        run: |
-          npm ci || npm install
-          npm install --no-save --package-lock=false @capacitor/ios@7.6.9
+      - name: Install dependencies
+        run: npm ci || npm install
 
-      - name: Build iOS project
+      - name: Build web app and generate iOS project
         run: |
           npm run build
-          npx cap add ios --packagemanager SPM
-          npx cap sync ios
+          rm -rf ios
+          npx cap add ios
+          python3 - <<'PY'
+          from pathlib import Path
 
-      - name: Import Apple signing certificate
+          podfile = Path("ios/App/Podfile")
+          text = podfile.read_text(encoding="utf-8")
+          snippet = """post_install do |installer|
+            assertDeploymentTarget(installer)
+            installer.pods_project.targets.each do |target|
+              target.build_configurations.each do |config|
+                config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
+                config.build_settings['CODE_SIGNING_REQUIRED'] = 'NO'
+              end
+            end
+          end"""
+          if "CODE_SIGNING_ALLOWED" not in text:
+              text = text.replace(
+                  "post_install do |installer|\n  assertDeploymentTarget(installer)\nend",
+                  snippet,
+              )
+              podfile.write_text(text, encoding="utf-8")
+          PY
+          npx cap sync ios
+          (cd ios/App && pod install)
+
+      - name: Check Apple signing secrets
+        id: signing
+        env:
+          IOS_CERTIFICATE_BASE64: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
+          IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+          IOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+          IOS_TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
+        run: |
+          if [ -n "$IOS_CERTIFICATE_BASE64" ] && [ -n "$IOS_CERTIFICATE_PASSWORD" ] && [ -n "$IOS_PROVISIONING_PROFILE_BASE64" ] && [ -n "$IOS_TEAM_ID" ]; then
+            echo "signed=true" >> "$GITHUB_OUTPUT"
+            echo "Certificats Apple détectés : build IPA signé (App Store / TestFlight)."
+          else
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+            echo "Aucun certificat Apple payant configuré : build IPA ad-hoc (compatible AltStore / Sideloadly / TrollStore)."
+          fi
+
+      - name: Import Apple signing certificate and profile
+        if: steps.signing.outputs.signed == 'true'
         env:
           IOS_CERTIFICATE_BASE64: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
           IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
@@ -139,10 +193,7 @@ jobs:
           security set-key-partition-list \
             -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
           security list-keychains -d user -s "$KEYCHAIN_PATH"
-          echo "KEYCHAIN_PATH=$KEYCHAIN_PATH" >> "$GITHUB_ENV"
 
-      - name: Install provisioning profile
-        run: |
           security cms -D -i "$RUNNER_TEMP/profile.mobileprovision" -o "$RUNNER_TEMP/profile.plist"
           PROFILE_UUID=$(/usr/libexec/PlistBuddy -c 'Print UUID' "$RUNNER_TEMP/profile.plist")
           mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
@@ -150,12 +201,13 @@ jobs:
             "$HOME/Library/MobileDevice/Provisioning Profiles/$PROFILE_UUID.mobileprovision"
           echo "IOS_PROFILE_UUID=$PROFILE_UUID" >> "$GITHUB_ENV"
 
-      - name: Archive and export IPA
+      - name: Build signed IPA (App Store Connect)
+        if: steps.signing.outputs.signed == 'true'
         env:
           IOS_TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
         run: |
           xcodebuild \
-            -project ios/App/App.xcodeproj \
+            -workspace ios/App/App.xcworkspace \
             -scheme App \
             -configuration Release \
             -sdk iphoneos \
@@ -193,6 +245,33 @@ jobs:
           cp "$RUNNER_TEMP"/ipa/*.ipa ./PayFlow-iOS.ipa
           ls -lh ./PayFlow-iOS.ipa
 
+      - name: Build sideloadable IPA (no paid Apple certificate required)
+        if: steps.signing.outputs.signed != 'true'
+        run: |
+          xcodebuild \
+            -workspace ios/App/App.xcworkspace \
+            -scheme App \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath "$RUNNER_TEMP/DerivedData" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            AD_HOC_CODE_SIGNING_ALLOWED=YES \
+            build
+
+          APP_PATH=$(find "$RUNNER_TEMP/DerivedData/Build/Products" -type d -name "App.app" | head -n 1)
+          test -n "$APP_PATH" && test -d "$APP_PATH"
+
+          rm -rf "$RUNNER_TEMP/ipa_stage"
+          mkdir -p "$RUNNER_TEMP/ipa_stage/Payload"
+          cp -R "$APP_PATH" "$RUNNER_TEMP/ipa_stage/Payload/App.app"
+          codesign --force --deep --sign - "$RUNNER_TEMP/ipa_stage/Payload/App.app" || true
+
+          (cd "$RUNNER_TEMP/ipa_stage" && ditto -c -k --sequesterRsrc --keepParent Payload "$GITHUB_WORKSPACE/PayFlow-iOS.ipa")
+          ls -lh ./PayFlow-iOS.ipa
+
       - name: Publish direct IPA file to GitHub Release (no ZIP)
         if: github.event_name != 'pull_request'
         env:
@@ -205,8 +284,11 @@ jobs:
             TAG="v${VERSION}"
           fi
           gh release view "$TAG" >/dev/null 2>&1 || \
-            gh release create "$TAG" --title "PayFlow $TAG" --notes "Téléchargements directs PayFlow : chaque fichier (.exe, .AppImage, .deb, .rpm, .apk…) est disponible individuellement sans archive ZIP." --latest || true
-          gh release upload "$TAG" ./PayFlow-iOS.ipa --clobber
+            gh release create "$TAG" --title "PayFlow $TAG" --notes "Téléchargements directs PayFlow : chaque fichier (.exe, .AppImage, .deb, .rpm, .apk, .ipa…) est disponible individuellement sans archive ZIP." --latest || true
+          for attempt in 1 2 3; do
+            gh release upload "$TAG" ./PayFlow-iOS.ipa --clobber && break
+            sleep 3
+          done
           {
             echo "### Fichier iOS IPA disponible directement (sans ZIP)"
             echo "- [PayFlow-iOS.ipa](https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/PayFlow-iOS.ipa)"
