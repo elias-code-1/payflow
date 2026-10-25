@@ -21,12 +21,38 @@ services:
         value: "true"
       - key: SESSION_SECRET
         generateValue: true
+      - key: PAYFLOW_RELEASES_URL
+        value: https://github.com/elias-code-1/payflow/releases
       - key: PAYFLOW_EXE_DOWNLOAD_URL
-        value: ""
+        value: https://github.com/elias-code-1/payflow/releases/latest/download/PayFlow-Setup-1.0.0.exe
+      - key: PAYFLOW_EXE_PORTABLE_DOWNLOAD_URL
+        value: https://github.com/elias-code-1/payflow/releases/latest/download/PayFlow-Portable-1.0.0.exe
       - key: PAYFLOW_APK_DOWNLOAD_URL
-        value: ""
+        value: https://github.com/elias-code-1/payflow/releases/latest/download/payflow-android.apk
+      - key: PAYFLOW_IPA_DOWNLOAD_URL
+        value: https://github.com/elias-code-1/payflow/releases/latest/download/PayFlow-iOS.ipa
       - key: PAYFLOW_LINUX_DOWNLOAD_URL
-        value: ""
+        value: https://github.com/elias-code-1/payflow/releases/latest/download/PayFlow-1.0.0.AppImage
+      - key: PAYFLOW_APPIMAGE_DOWNLOAD_URL
+        value: https://github.com/elias-code-1/payflow/releases/latest/download/PayFlow-1.0.0.AppImage
+      - key: PAYFLOW_DEB_DOWNLOAD_URL
+        value: https://github.com/elias-code-1/payflow/releases/latest/download/payflow-1.0.0-amd64.deb
+      - key: PAYFLOW_RPM_DOWNLOAD_URL
+        value: https://github.com/elias-code-1/payflow/releases/latest/download/payflow-1.0.0-x86_64.rpm
+      - key: PAYFLOW_SNAP_DOWNLOAD_URL
+        value: https://github.com/elias-code-1/payflow/releases/latest/download/payflow-1.0.0-amd64.snap
+      - key: PAYFLOW_FLATPAK_DOWNLOAD_URL
+        value: https://github.com/elias-code-1/payflow/releases/latest/download/PayFlow-1.0.0-x86_64.flatpak
+      - key: PAYFLOW_PACMAN_DOWNLOAD_URL
+        value: https://github.com/elias-code-1/payflow/releases/latest/download/payflow-1.0.0.pacman
+      - key: PAYFLOW_ALPINE_APK_DOWNLOAD_URL
+        value: https://github.com/elias-code-1/payflow/releases/latest/download/payflow-alpine-1.0.0.apk
+      - key: PAYFLOW_FREEBSD_DOWNLOAD_URL
+        value: https://github.com/elias-code-1/payflow/releases/latest/download/payflow-1.0.0.freebsd
+      - key: PAYFLOW_ARCHIVE_DOWNLOAD_URL
+        value: https://github.com/elias-code-1/payflow/releases/latest/download/payflow-1.0.0.tar.gz
+      - key: PAYFLOW_7Z_DOWNLOAD_URL
+        value: https://github.com/elias-code-1/payflow/releases/latest/download/payflow-1.0.0.7z
     disk:
       name: payflow-data
       mountPath: /var/data

@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   windows:
@@ -27,18 +27,37 @@ jobs:
       - name: Install dependencies
         run: npm ci || npm install
 
-      - name: Build Windows packages
+      - name: Build Windows packages (direct .exe files, no ZIP)
         run: |
           npm run build
           npx electron-builder --win nsis portable --publish never
 
-      - name: Upload Windows EXE files
-        uses: actions/upload-artifact@v4
-        with:
-          name: payflow-windows-${{ github.sha }}
-          path: release/*.exe
-          if-no-files-found: error
-          retention-days: 14
+      - name: Verify generated EXE files
+        shell: bash
+        run: ls -lh release/*.exe
+
+      - name: Publish direct EXE files to GitHub Release (no ZIP)
+        if: github.event_name != 'pull_request'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            TAG="${GITHUB_REF_NAME}"
+          else
+            TAG="v${VERSION}"
+          fi
+          gh release view "$TAG" >/dev/null 2>&1 || \
+            gh release create "$TAG" --title "PayFlow $TAG" --notes "Téléchargements directs PayFlow : chaque fichier (.exe, .AppImage, .deb, .rpm, .apk…) est disponible individuellement sans archive ZIP." --latest || true
+          gh release upload "$TAG" release/*.exe --clobber
+          {
+            echo "### Fichiers Windows disponibles directement (sans ZIP)"
+            for f in release/*.exe; do
+              bn=$(basename "$f")
+              echo "- [$bn](https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/${bn})"
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
 
   linux:
     name: Linux package formats
@@ -55,23 +74,38 @@ jobs:
       - name: Install Linux packaging tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y flatpak flatpak-builder fuse3 lzip rpm squashfs-tools libarchive-tools xz-utils bzip2
+          sudo apt-get install -y flatpak flatpak-builder fuse3 lzip rpm squashfs-tools libarchive-tools xz-utils bzip2 p7zip-full
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 || true
           flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
 
       - name: Install dependencies
         run: npm ci || npm install
 
-      - name: Build Linux packages
+      - name: Build Linux packages (direct files, no ZIP)
         run: |
           npm run build
-          npx electron-builder --linux AppImage deb rpm snap flatpak pacman apk freebsd 7z zip tar.xz tar.lz tar.gz tar.bz2 --publish never
+          npx electron-builder --linux AppImage deb rpm snap flatpak pacman apk freebsd 7z tar.xz tar.lz tar.gz tar.bz2 --publish never
+          VERSION=$(node -p "require('./package.json').version")
+          if [ -f "release/payflow-${VERSION}.apk" ]; then
+            mv "release/payflow-${VERSION}.apk" "release/payflow-alpine-${VERSION}.apk"
+          fi
+          ls -lh release/
 
-      - name: Upload Linux packages
-        uses: actions/upload-artifact@v4
-        with:
-          name: payflow-linux-${{ github.sha }}
-          path: |
+      - name: Publish direct Linux files to GitHub Release (no ZIP)
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            TAG="${GITHUB_REF_NAME}"
+          else
+            TAG="v${VERSION}"
+          fi
+          gh release view "$TAG" >/dev/null 2>&1 || \
+            gh release create "$TAG" --title "PayFlow $TAG" --notes "Téléchargements directs PayFlow : chaque fichier (.exe, .AppImage, .deb, .rpm, .apk…) est disponible individuellement sans archive ZIP." --latest || true
+          shopt -s nullglob
+          FILES=(
             release/*.AppImage
             release/*.deb
             release/*.rpm
@@ -81,7 +115,16 @@ jobs:
             release/*.apk
             release/*.freebsd
             release/*.7z
-            release/*.zip
-            release/*.tar.*
-          if-no-files-found: error
-          retention-days: 14
+            release/*.tar.gz
+            release/*.tar.xz
+            release/*.tar.bz2
+            release/*.tar.lz
+          )
+          gh release upload "$TAG" "${FILES[@]}" --clobber
+          {
+            echo "### Fichiers Linux & BSD disponibles directement (sans ZIP)"
+            for f in "${FILES[@]}"; do
+              bn=$(basename "$f")
+              echo "- [$bn](https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/${bn})"
+            done
+          } >> "$GITHUB_STEP_SUMMARY"

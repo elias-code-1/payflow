@@ -9,11 +9,11 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   android:
-    name: Android debug APK
+    name: Android APK (direct file, no ZIP)
     runs-on: ubuntu-latest
     env:
       CAPACITOR_SERVER_URL: ${{ vars.CAPACITOR_SERVER_URL }}
@@ -48,17 +48,31 @@ jobs:
           npx cap sync android
           cd android
           ./gradlew assembleDebug
+          cd ..
+          cp android/app/build/outputs/apk/debug/*.apk ./payflow-android.apk
+          ls -lh ./payflow-android.apk
 
-      - name: Upload Android APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: payflow-android-debug-${{ github.sha }}
-          path: android/app/build/outputs/apk/debug/*.apk
-          if-no-files-found: error
-          retention-days: 14
+      - name: Publish direct APK file to GitHub Release (no ZIP)
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            TAG="${GITHUB_REF_NAME}"
+          else
+            TAG="v${VERSION}"
+          fi
+          gh release view "$TAG" >/dev/null 2>&1 || \
+            gh release create "$TAG" --title "PayFlow $TAG" --notes "Téléchargements directs PayFlow : chaque fichier (.exe, .AppImage, .deb, .rpm, .apk…) est disponible individuellement sans archive ZIP." --latest || true
+          gh release upload "$TAG" ./payflow-android.apk --clobber
+          {
+            echo "### Fichier Android APK disponible directement (sans ZIP)"
+            echo "- [payflow-android.apk](https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/payflow-android.apk)"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   ios:
-    name: Signed iOS IPA
+    name: Signed iOS IPA (direct file, no ZIP)
     if: github.event_name == 'workflow_dispatch'
     runs-on: macos-15
     env:
@@ -176,10 +190,24 @@ jobs:
             -exportPath "$RUNNER_TEMP/ipa" \
             -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist"
 
-      - name: Upload iOS IPA
-        uses: actions/upload-artifact@v4
-        with:
-          name: payflow-ios-ipa-${{ github.sha }}
-          path: ${{ runner.temp }}/ipa/*.ipa
-          if-no-files-found: error
-          retention-days: 14
+          cp "$RUNNER_TEMP"/ipa/*.ipa ./PayFlow-iOS.ipa
+          ls -lh ./PayFlow-iOS.ipa
+
+      - name: Publish direct IPA file to GitHub Release (no ZIP)
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            TAG="${GITHUB_REF_NAME}"
+          else
+            TAG="v${VERSION}"
+          fi
+          gh release view "$TAG" >/dev/null 2>&1 || \
+            gh release create "$TAG" --title "PayFlow $TAG" --notes "Téléchargements directs PayFlow : chaque fichier (.exe, .AppImage, .deb, .rpm, .apk…) est disponible individuellement sans archive ZIP." --latest || true
+          gh release upload "$TAG" ./PayFlow-iOS.ipa --clobber
+          {
+            echo "### Fichier iOS IPA disponible directement (sans ZIP)"
+            echo "- [PayFlow-iOS.ipa](https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/PayFlow-iOS.ipa)"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -5,23 +5,7 @@ const authController = require('../controllers/authController');
 const { authenticate } = require('../middleware/authenticate');
 const featureController = require('../controllers/featureController');
 
-const {
-  RELEASES_URL,
-  EXE_DOWNLOAD_URL,
-  EXE_PORTABLE_DOWNLOAD_URL,
-  APK_DOWNLOAD_URL,
-  IPA_DOWNLOAD_URL,
-  LINUX_DOWNLOAD_URL,
-  APPIMAGE_DOWNLOAD_URL,
-  DEB_DOWNLOAD_URL,
-  RPM_DOWNLOAD_URL,
-  SNAP_DOWNLOAD_URL,
-  FLATPAK_DOWNLOAD_URL,
-  PACMAN_DOWNLOAD_URL,
-  ALPINE_APK_DOWNLOAD_URL,
-  FREEBSD_DOWNLOAD_URL,
-  ARCHIVE_DOWNLOAD_URL,
-} = require('../config');
+const { getDownloadLinks } = require('../config');
 
 const router = express.Router();
 
@@ -30,23 +14,8 @@ router.get('/health', (_req, res) => {
 });
 
 router.get('/downloads', (_req, res) => {
-  res.json({
-    releasesUrl: RELEASES_URL,
-    exeUrl: EXE_DOWNLOAD_URL,
-    exePortableUrl: EXE_PORTABLE_DOWNLOAD_URL,
-    apkUrl: APK_DOWNLOAD_URL,
-    ipaUrl: IPA_DOWNLOAD_URL,
-    linuxUrl: LINUX_DOWNLOAD_URL,
-    appImageUrl: APPIMAGE_DOWNLOAD_URL,
-    debUrl: DEB_DOWNLOAD_URL,
-    rpmUrl: RPM_DOWNLOAD_URL,
-    snapUrl: SNAP_DOWNLOAD_URL,
-    flatpakUrl: FLATPAK_DOWNLOAD_URL,
-    pacmanUrl: PACMAN_DOWNLOAD_URL,
-    alpineApkUrl: ALPINE_APK_DOWNLOAD_URL,
-    freebsdUrl: FREEBSD_DOWNLOAD_URL,
-    archiveUrl: ARCHIVE_DOWNLOAD_URL,
-  });
+  res.set('Cache-Control', 'no-store');
+  res.json(getDownloadLinks());
 });
 
 router.post('/auth/register', authController.register);

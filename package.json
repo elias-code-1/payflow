@@ -66,10 +66,15 @@
     },
     "nsis": {
       "oneClick": false,
-      "allowToChangeInstallationDirectory": true
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "PayFlow-Setup-${version}.${ext}"
+    },
+    "portable": {
+      "artifactName": "PayFlow-Portable-${version}.${ext}"
     },
     "linux": {
       "executableName": "payflow",
+      "artifactName": "payflow-${version}.${ext}",
       "icon": "public/payflow-icon.png",
       "category": "Office",
       "maintainer": "PayFlow Contributors <noreply@users.noreply.github.com>",
@@ -80,9 +85,22 @@
         "rpm"
       ]
     },
+    "appImage": {
+      "artifactName": "PayFlow-${version}.${ext}"
+    },
+    "deb": {
+      "artifactName": "payflow-${version}-amd64.${ext}"
+    },
+    "rpm": {
+      "artifactName": "payflow-${version}-x86_64.${ext}"
+    },
+    "snap": {
+      "artifactName": "payflow-${version}-amd64.${ext}"
+    },
     "flatpak": {
       "runtimeVersion": "26.08",
-      "baseVersion": "26.08"
+      "baseVersion": "26.08",
+      "artifactName": "PayFlow-${version}-x86_64.${ext}"
     }
   },
   "allowScripts": {
