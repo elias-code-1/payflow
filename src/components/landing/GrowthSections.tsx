@@ -12,7 +12,7 @@ const faqItems = [
   ["PayFlow est-il vraiment gratuit ?", "Oui. Le logiciel est open source et ne facture pas d’abonnement. Les frais éventuels du prestataire de paiement restent indépendants de PayFlow."],
   ["Où sont stockées mes données ?", "Dans une base SQLite locale à l’installation. Il est important de sauvegarder le fichier de base de données."],
   ["Est-ce que PayFlow débite directement mon client ?", "Non. PayFlow génère un lien hébergé par PayGateGlobal. Le client ouvre le lien et finalise lui-même le paiement."],
-  ["Comment les paiements confirmés alimentent-ils les graphiques ?", "Les graphiques de revenus utilisent les événements de paiement confirmés enregistrés dans SQLite. La notification de paiement doit être configurée selon le protocole de callback officiel de votre compte PayGateGlobal."],
+  ["Comment les paiements confirmés alimentent-ils les graphiques ?", "PayFlow ne reçoit aucune notification de paiement. Les graphiques évoluent lorsque vous marquez manuellement un lien comme payé dans votre dashboard."],
   ["Puis-je utiliser plusieurs comptes ?", "Oui. Chaque compte local a ses propres liens, clients et clé API, séparés dans SQLite."],
   ["La landing page est-elle incluse dans l’APK/EXE ?", "Non. Seul le dashboard est destiné aux applications desktop et Android. La landing page reste le site web public."],
 ];

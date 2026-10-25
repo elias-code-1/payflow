@@ -20,6 +20,9 @@ Le marchand confirme le paiement depuis le dashboard si le statut a été observ
 ### Étape 6 : gestion et reporting
 Le marchand vérifie les statistiques, l’historique, les clients et les liens. Il peut exporter ou relancer selon ses besoins.
 
+### Étape 7 : aide, don et déconnexion
+Depuis le dashboard, le marchand ouvre la page Aide & communauté pour consulter le dépôt GitHub ou soutenir PayFlow. Le bouton de don ouvre la page de paiement externe. Le marchand peut se déconnecter depuis le bas de la barre latérale ou depuis l’icône dédiée sur petit écran.
+
 ## 2. Cas d’usage
 
 ### Cas A — paiement par un client
@@ -40,4 +43,4 @@ Le marchand vérifie les statistiques, l’historique, les clients et les liens.
 
 ## 3. Point de vigilance
 
-Le parcours utilisateur doit rester explicite : le dashboard est un outil de gestion locale, pas un système de confirmation automatique fournisseur.
+Le parcours utilisateur doit rester explicite : aucun webhook ni notification de paiement n’est utilisé. Un statut « Payé » est toujours saisi manuellement par le marchand.

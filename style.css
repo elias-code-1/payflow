@@ -752,6 +752,11 @@ footer {
   font-weight: 650;
 }
 
+.nav-support,
+.nav-logout {
+  display: none;
+}
+
 .nav-item > span:nth-child(2) {
   flex: 1;
 }
@@ -773,12 +778,27 @@ footer {
 }
 
 .support-card {
+  width: 100%;
   display: flex;
   align-items: center;
   gap: 9px;
   padding: 12px 9px;
+  border: 0;
   border-radius: 11px;
   background: #f5f9f8;
+  color: var(--dashboard-ink);
+  text-align: left;
+  cursor: pointer;
+  transition: background .2s ease, transform .2s ease;
+}
+
+.support-card:hover,
+.support-card.active {
+  background: #e9f5f0;
+}
+
+.support-card:hover {
+  transform: translateY(-1px);
 }
 
 .support-icon {
@@ -793,7 +813,7 @@ footer {
   font-weight: 700;
 }
 
-.support-card > div:nth-child(2) {
+.support-card > span:nth-child(2) {
   display: grid;
   gap: 2px;
 }
@@ -832,6 +852,18 @@ footer {
   background: #e8e7fa;
   color: #6158bf;
   font-size: 11px;
+}
+
+.profile-identity {
+  min-width: 0;
+  display: grid;
+}
+
+.profile-identity strong,
+.profile-identity small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .profile-dots {
@@ -881,6 +913,28 @@ footer {
   display: flex;
   align-items: center;
   gap: 17px;
+}
+
+.topbar-donate {
+  min-height: 37px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 13px;
+  border: 1px solid #cce9dd;
+  border-radius: 8px;
+  background: #eff9f4;
+  color: #147b62;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  transition: background .2s ease, border-color .2s ease;
+}
+
+.topbar-donate:hover {
+  border-color: #97d6bc;
+  background: #e2f4ec;
 }
 
 .app-shell .search-box {
@@ -1702,12 +1756,106 @@ footer {
 
 .logout-button {
   margin-left: auto;
-  padding: 5px;
+  padding: 6px 7px;
   border: 0;
+  border-radius: 6px;
   background: transparent;
-  color: #68837a !important;
-  font-size: 9px !important;
+  color: #54756a !important;
+  font-size: 10px !important;
+  font-weight: 700;
+  white-space: nowrap;
   cursor: pointer;
+}
+
+.logout-button:hover {
+  background: #f0f5f3;
+  color: #a34141 !important;
+}
+
+.help-community-page {
+  display: grid;
+  gap: 12px;
+}
+
+.help-community-page > h1 {
+  margin: 0;
+  color: var(--dashboard-ink);
+  font-size: 25px;
+}
+
+.help-community-page > p {
+  max-width: 740px;
+  margin: 0;
+  color: var(--dashboard-muted);
+}
+
+.help-community-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 10px;
+}
+
+.help-community-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 11px;
+  min-height: 250px;
+  padding: 24px;
+  border: 1px solid var(--dashboard-border);
+  border-radius: 14px;
+  background: #fff;
+}
+
+.help-community-card.donation-card {
+  border-color: #d1eade;
+  background: linear-gradient(140deg, #f3fbf6, #fff 72%);
+}
+
+.help-community-icon {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: #e1f3e9;
+  color: #168061;
+}
+
+.help-community-card h2 {
+  margin: 0;
+  color: var(--dashboard-ink);
+  font-size: 18px;
+}
+
+.help-community-card p {
+  flex: 1;
+  margin: 0;
+  color: var(--dashboard-muted);
+  font-size: 13px;
+}
+
+.help-community-card .button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+}
+
+.help-community-note {
+  display: grid;
+  gap: 4px;
+  margin-top: 8px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: #f6f8f8;
+  color: var(--dashboard-muted);
+  font-size: 12px;
+}
+
+.help-community-note strong {
+  color: var(--dashboard-ink);
 }
 
 .auth-shell {
@@ -2105,6 +2253,11 @@ footer {
     display: none;
   }
 
+  .nav-support,
+  .nav-logout {
+    display: flex;
+  }
+
   .workspace-card {
     min-height: 46px;
     padding: 5px;
@@ -2173,6 +2326,28 @@ footer {
   .topbar-date,
   .topbar-divider {
     display: none;
+  }
+
+  .topbar-donate {
+    width: 36px;
+    min-width: 36px;
+    min-height: 36px;
+    padding: 0;
+    border-color: transparent;
+    background: transparent;
+  }
+
+  .topbar-donate span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+  }
+
+  .help-community-grid {
+    grid-template-columns: 1fr;
   }
 
   .page-content {

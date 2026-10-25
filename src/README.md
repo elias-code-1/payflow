@@ -4,20 +4,20 @@ Guide rapide pour reprendre le frontend PayFlow. Lire d’abord le [README racin
 
 ## Entrées de l’application
 
-- `main.jsx` monte la landing page.
-- `dashboard/main.jsx` monte le dashboard.
+- `main.tsx` monte la landing page.
+- `dashboard/main.tsx` monte le dashboard.
 - `components/landing/` contient les sections de la landing page.
 - `components/dashboard/` contient les vues et composants du dashboard.
 - `components/auth/` contient l’interface de connexion / création de compte.
 - `pages/` contient les pages réutilisables.
-- `services/api.js` centralise les requêtes HTTP vers l’API.
+- `services/api.ts` centralise les requêtes HTTP typées vers l’API.
 - `utils/` contient les fonctions partagées, notamment le formatage et les calculs de transactions.
 
-Le code est actuellement en JavaScript/JSX. Aucune migration TypeScript/TSX n’est confirmée.
+Le frontend est migré en TypeScript/TSX avec la configuration de base dans `../tsconfig.json`. Le backend Express reste en JavaScript. Vite transpile TSX pour le build; un type-check séparé est à ajouter quand TypeScript et les types React seront disponibles dans l’environnement npm.
 
 ## Flux du dashboard
 
-`DashboardApp.jsx` récupère la session, charge statistiques, transactions, liens, clients et configuration API, puis affiche la vue sélectionnée. Les changements de statut déclenchent un rafraîchissement des données. Examiner ce flux avant de déplacer l’état ou de créer une nouvelle page.
+`DashboardApp.tsx` récupère la session, charge statistiques, transactions calculées depuis les liens payés, clients et configuration API, puis affiche la vue sélectionnée. Les changements de statut déclenchent un rafraîchissement des données. Examiner ce flux avant de déplacer l’état ou de créer une nouvelle page.
 
 ## Principes UX et métier
 
@@ -30,7 +30,7 @@ Le code est actuellement en JavaScript/JSX. Aucune migration TypeScript/TSX n’
 
 ## API frontend
 
-Utiliser `services/api.js` plutôt que de disperser des appels `fetch`. Cette couche vérifie déjà les réponses JSON et remonte les erreurs HTTP. Avant d’utiliser un endpoint, vérifier qu’il est réellement défini dans `../server/routes/api.js`.
+Utiliser `services/api.ts` plutôt que de disperser des appels `fetch`. Cette couche vérifie déjà les réponses JSON et remonte les erreurs HTTP. Avant d’utiliser un endpoint, vérifier qu’il est réellement défini dans `../server/routes/api.js`.
 
 ## Commandes
 

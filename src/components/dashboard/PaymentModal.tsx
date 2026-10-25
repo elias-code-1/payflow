@@ -1,9 +1,16 @@
 import React, { useEffect, useRef } from "react";
+import type { FormEvent, MouseEvent } from "react";
 import { gsap } from "gsap";
 import Icon from "../common/Icon";
 
-export default function PaymentModal({ busy, onClose, onSubmit }) {
-  const modalRef = useRef(null);
+interface PaymentModalProps {
+  busy: boolean;
+  onClose: () => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+}
+
+export default function PaymentModal({ busy, onClose, onSubmit }: PaymentModalProps) {
+  const modalRef = useRef<HTMLSectionElement | null>(null);
 
   useEffect(() => {
     if (modalRef.current) {
@@ -12,7 +19,7 @@ export default function PaymentModal({ busy, onClose, onSubmit }) {
   }, []);
 
   return (
-    <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+    <div className="modal-backdrop" onMouseDown={(event: MouseEvent<HTMLDivElement>) => { if (event.target === event.currentTarget) onClose(); }}>
       <section className="payment-modal" ref={modalRef} role="dialog" aria-modal="true" aria-labelledby="payment-title">
         <div className="modal-heading"><div><div className="eyebrow">NOUVEL ENCAISSEMENT</div><h2 id="payment-title">Créer un lien</h2><p>Le client finalise lui-même le paiement via PayGateGlobal.</p></div><button className="icon-button" onClick={onClose} aria-label="Fermer"><Icon name="close" /></button></div>
         <form onSubmit={onSubmit}>

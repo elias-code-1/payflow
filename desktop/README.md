@@ -6,10 +6,10 @@ Notes de reprise pour l’application desktop. Lire d’abord le [README racine]
 
 - `main.cjs` est le point d’entrée Electron.
 - `package.json` déclare les scripts `package:win` et `package:linux`.
-- Le projet Android est optionnel et ignoré par Git.
+- Les projets natifs Android et iOS sont générés pendant les workflows et ignorés par Git.
 - La configuration de packaging est dans `package.json`.
 - Les builds APK/EXE ne sont pas confirmés comme ayant été exécutés ou validés.
-- Aucun workflow GitHub Actions de build n’est confirmé.
+- Les workflows GitHub Actions de build sont dans `.github/workflows/build-desktop.yml` et `.github/workflows/build-mobile.yml`.
 
 ## Règles
 

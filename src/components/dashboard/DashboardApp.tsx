@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import type { FormEvent, ReactNode } from "react";
 import { gsap } from "gsap";
 import { api } from "../../services/api";
 import { createIdentifier } from "../../utils/formatters";
@@ -6,17 +7,24 @@ import { getTransactionRows } from "../../utils/paymentAnalytics";
 import AuthPage from "../auth/AuthPage";
 import DashboardLayout from "./DashboardLayout";
 import PaymentModal from "./PaymentModal";
+import HelpCommunityPage from "./HelpCommunityPage";
 import { OverviewPage, TransactionsPage, LinksPage, CustomersPage, AnalyticsPage, SettingsPage } from "./DashboardPages";
+import type { CurrencyCode, Customer, DashboardPageId, DashboardStats, PaymentLink, PaymentLinkStatus, User } from "../../types";
+
+const EMPTY_STATS: DashboardStats = { payments: 0, completed: 0, links: 0, pending: 0, customers: 0, revenue: 0 };
+
+function errorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error ? error.message : fallback;
+}
 
 export default function DashboardApp() {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState<User | null>(null);
   const [authReady, setAuthReady] = useState(false);
   const [hasAccounts, setHasAccounts] = useState(true);
-  const [page, setPage] = useState("overview");
-  const [stats, setStats] = useState({});
-  const [payments, setPayments] = useState([]);
-  const [links, setLinks] = useState([]);
-  const [customers, setCustomers] = useState([]);
+  const [page, setPage] = useState<DashboardPageId>("overview");
+  const [stats, setStats] = useState<DashboardStats>(EMPTY_STATS);
+  const [links, setLinks] = useState<PaymentLink[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [configured, setConfigured] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -25,18 +33,16 @@ export default function DashboardApp() {
   const [noticeError, setNoticeError] = useState(false);
   const [query, setQuery] = useState("");
   const [range, setRange] = useState(7);
-  const pageRef = useRef(null);
+  const pageRef = useRef<HTMLDivElement | null>(null);
 
-  async function refreshData() {
-    const [nextStats, nextPayments, nextLinks, nextCustomers, nextSettings] = await Promise.all([
+  async function refreshData(): Promise<void> {
+    const [nextStats, nextLinks, nextCustomers, nextSettings] = await Promise.all([
       api.getStats(),
-      api.getPayments(),
       api.getPaymentLinks(),
       api.getCustomers(),
       api.getPaymentSettings(),
     ]);
     setStats(nextStats);
-    setPayments(nextPayments);
     setLinks(nextLinks);
     setCustomers(nextCustomers);
     setConfigured(nextSettings.configured);
@@ -49,16 +55,16 @@ export default function DashboardApp() {
         setUser(result.user);
         await refreshData();
       } catch (error) {
-        if (error.message === "Connectez-vous pour continuer." || error.message === "Cette session n’est plus valide.") {
+        if (error instanceof Error && (error.message === "Connectez-vous pour continuer." || error.message === "Cette session n’est plus valide.")) {
           try {
             const state = await api.getAuthStatus();
             setHasAccounts(state.hasAccounts);
           } catch (statusError) {
-            setNotice(statusError.message || "Le serveur local est indisponible.");
+            setNotice(errorMessage(statusError, "Le serveur local est indisponible."));
             setNoticeError(true);
           }
         } else {
-          setNotice(error.message || "Impossible de charger les données locales.");
+          setNotice(errorMessage(error, "Impossible de charger les données locales."));
           setNoticeError(true);
         }
       } finally {
@@ -76,10 +82,10 @@ export default function DashboardApp() {
 
   const filteredTransactions = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
-    const transactions = getTransactionRows(payments, links);
+    const transactions = getTransactionRows(links);
     if (!normalizedQuery) return transactions;
-    return transactions.filter((payment) => `${payment.identifier} ${payment.tx_reference} ${payment.phone_number} ${payment.payment_method}`.toLowerCase().includes(normalizedQuery));
-  }, [payments, links, query]);
+    return transactions.filter((payment) => `${payment.identifier || ""} ${payment.tx_reference || ""} ${payment.phone_number || ""} ${payment.payment_method || ""}`.toLowerCase().includes(normalizedQuery));
+  }, [links, query]);
 
   const filteredLinks = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -87,23 +93,24 @@ export default function DashboardApp() {
     return links.filter((link) => `${link.identifier} ${link.description} ${link.phone_number} ${link.payment_method}`.toLowerCase().includes(normalizedQuery));
   }, [links, query]);
 
-  async function createLink(event) {
+  async function createLink(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
     setBusy(true);
     setNotice("");
     setNoticeError(false);
     const formData = new FormData(event.currentTarget);
     const displayAmount = Number(String(formData.get("amount")).replace(",", "."));
-    const currency = formData.get("currency");
+    const selectedCurrency = formData.get("currency");
+    const currency: CurrencyCode = selectedCurrency === "EUR" || selectedCurrency === "USD" ? selectedCurrency : "XOF";
     const amountXof = Math.round(currency === "EUR" ? displayAmount * 655.957 : currency === "USD" ? displayAmount * 600 : displayAmount);
     try {
       const result = await api.createPaymentLink({
-        description: formData.get("description"),
-        phone_number: formData.get("phone"),
+        description: String(formData.get("description") || ""),
+        phone_number: String(formData.get("phone") || ""),
         amount: amountXof,
         display_amount: displayAmount,
         currency,
-        network: formData.get("network"),
+        network: String(formData.get("network") || "TMONEY"),
         identifier: createIdentifier(),
       });
       setShowPayment(false);
@@ -113,33 +120,33 @@ export default function DashboardApp() {
       await refreshData();
       setNotice(`${result.paymentUrl}`);
     } catch (error) {
-      setNotice(error.message || "La création du lien a échoué.");
+      setNotice(error instanceof Error ? error.message : "La création du lien a échoué.");
       setNoticeError(true);
     } finally {
       setBusy(false);
     }
   }
 
-  async function saveSettings(event) {
+  async function saveSettings(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
     setSavingSettings(true);
     const formData = new FormData(event.currentTarget);
     const form = event.currentTarget;
     try {
-      await api.savePaymentSettings(formData.get("apiToken"));
+      await api.savePaymentSettings(String(formData.get("apiToken") || ""));
       setConfigured(true);
       setNotice("Clé API enregistrée dans les paramètres locaux de ce compte.");
       setNoticeError(false);
       form.reset();
     } catch (error) {
-      setNotice(error.message || "L’enregistrement de la clé a échoué.");
+      setNotice(error instanceof Error ? error.message : "L’enregistrement de la clé a échoué.");
       setNoticeError(true);
     } finally {
       setSavingSettings(false);
     }
   }
 
-  async function copyLink(value) {
+  async function copyLink(value: string): Promise<void> {
     try {
       await navigator.clipboard.writeText(value);
       setNotice("Lien copié dans le presse-papiers.");
@@ -150,7 +157,7 @@ export default function DashboardApp() {
     }
   }
 
-  async function updateLinkStatus(id, status) {
+  async function updateLinkStatus(id: number, status: PaymentLinkStatus): Promise<void> {
     try {
       const result = await api.updatePaymentLinkStatus(id, status);
       setLinks((current) => current.map((link) => link.id === id
@@ -160,21 +167,20 @@ export default function DashboardApp() {
       setNotice("Statut du lien mis à jour.");
       setNoticeError(false);
     } catch (error) {
-      setNotice(error.message || "Le statut du lien n’a pas pu être mis à jour.");
+      setNotice(error instanceof Error ? error.message : "Le statut du lien n’a pas pu être mis à jour.");
       setNoticeError(true);
     }
   }
 
-  async function logout() {
+  async function logout(): Promise<void> {
     try {
       await api.logout();
       setUser(null);
-      setStats({});
-      setPayments([]);
+      setStats(EMPTY_STATS);
       setLinks([]);
       setCustomers([]);
     } catch (error) {
-      setNotice(error.message || "La déconnexion a échoué.");
+      setNotice(error instanceof Error ? error.message : "La déconnexion a échoué.");
       setNoticeError(true);
     }
   }
@@ -182,17 +188,18 @@ export default function DashboardApp() {
   if (!authReady) return <main className="auth-shell"><div className="auth-loading">Chargement de votre espace local…</div></main>;
   if (!user) return <AuthPage hasAccounts={hasAccounts} onAuthenticated={async (nextUser) => { setHasAccounts(true); setUser(nextUser); setNotice(""); await refreshData(); }} />;
 
-  let content;
-  if (page === "overview") content = <OverviewPage stats={stats} payments={payments} transactions={filteredTransactions} links={links} range={range} onRangeChange={setRange} onCreate={() => setShowPayment(true)} onNavigate={setPage} />;
+  let content: ReactNode;
+  if (page === "overview") content = <OverviewPage stats={stats} transactions={filteredTransactions} links={links} range={range} onRangeChange={setRange} onCreate={() => setShowPayment(true)} onNavigate={setPage} />;
   if (page === "transactions") content = <TransactionsPage transactions={filteredTransactions} />;
   if (page === "links") content = <LinksPage links={filteredLinks} onCopy={copyLink} onCreate={() => setShowPayment(true)} onStatusChange={updateLinkStatus} />;
   if (page === "customers") content = <CustomersPage customers={customers.filter((customer) => customer.phone_number.toLowerCase().includes(query.trim().toLowerCase()))} />;
-  if (page === "analytics") content = <AnalyticsPage stats={stats} payments={payments} links={links} />;
+  if (page === "analytics") content = <AnalyticsPage stats={stats} links={links} />;
   if (page === "settings") content = <SettingsPage configured={configured} saving={savingSettings} onSave={saveSettings} />;
+  if (page === "support") content = <HelpCommunityPage />;
 
   return (
     <>
-      <DashboardLayout page={page} onNavigate={(nextPage) => { setPage(nextPage); setNotice(""); }} query={query} onQueryChange={setQuery} user={user} onLogout={logout}>
+      <DashboardLayout page={page} onNavigate={(nextPage: DashboardPageId) => { setPage(nextPage); setNotice(""); }} query={query} onQueryChange={setQuery} user={user} onLogout={logout}>
         <div className="dashboard-content" ref={pageRef}>
           {notice && <div className={`notice ${noticeError ? "notice-error" : ""}`} role={noticeError ? "alert" : "status"}><span>{notice.startsWith("https://") ? <><span>Lien prêt : </span><a className="payment-link" href={notice} target="_blank" rel="noreferrer">Ouvrir le lien de paiement</a><small className="payment-link-url">{notice}</small></> : notice}</span><button onClick={() => setNotice("")} aria-label="Fermer le message"><span aria-hidden="true">×</span></button></div>}
           {content}

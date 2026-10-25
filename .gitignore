@@ -3,6 +3,7 @@ dist/
 dist-mobile/
 release/
 android/
+ios/
 .env
 .env.*
 !.env.example

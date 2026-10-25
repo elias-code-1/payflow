@@ -2,54 +2,29 @@ const { getQuery, runQuery } = require('../db');
 
 class PaymentModel {
   static async getStats(userId) {
-    const [payments, completedPayments, paidLinks, links, customers, paymentRevenue, linkRevenue] = await Promise.all([
-      getQuery('SELECT COUNT(*) AS total FROM payments WHERE user_id = ?', [userId]),
-      getQuery('SELECT COUNT(*) AS total FROM payments WHERE user_id = ? AND status = 1', [userId]),
-      getQuery(`
-        SELECT COUNT(*) AS total FROM payment_links AS link
-        WHERE link.user_id = ? AND link.status = 'paid'
-          AND NOT EXISTS (
-            SELECT 1 FROM payments
-            WHERE payments.user_id = link.user_id
-              AND payments.identifier = link.identifier
-              AND payments.status = 1
-          )
-      `, [userId]),
+    const [paidLinks, links, pendingLinks, customers, revenue] = await Promise.all([
+      getQuery("SELECT COUNT(*) AS total FROM payment_links WHERE user_id = ? AND status = 'paid'", [userId]),
       getQuery('SELECT COUNT(*) AS total FROM payment_links WHERE user_id = ?', [userId]),
-      getQuery(`
-        SELECT COUNT(DISTINCT phone_number) AS total FROM (
-          SELECT phone_number FROM payments WHERE user_id = ? AND phone_number IS NOT NULL AND phone_number != ''
-          UNION
-          SELECT phone_number FROM payment_links WHERE user_id = ? AND phone_number IS NOT NULL AND phone_number != ''
-        )
-      `, [userId, userId]),
-      getQuery('SELECT COALESCE(SUM(amount), 0) AS revenue FROM payments WHERE user_id = ? AND status = 1', [userId]),
-      getQuery(`
-        SELECT COALESCE(SUM(link.amount), 0) AS revenue FROM payment_links AS link
-        WHERE link.user_id = ? AND link.status = 'paid'
-          AND NOT EXISTS (
-            SELECT 1 FROM payments
-            WHERE payments.user_id = link.user_id
-              AND payments.identifier = link.identifier
-              AND payments.status = 1
-          )
-      `, [userId]),
+      getQuery("SELECT COUNT(*) AS total FROM payment_links WHERE user_id = ? AND status = 'pending'", [userId]),
+      getQuery("SELECT COUNT(DISTINCT phone_number) AS total FROM payment_links WHERE user_id = ? AND phone_number IS NOT NULL AND phone_number != ''", [userId]),
+      getQuery("SELECT COALESCE(SUM(amount), 0) AS revenue FROM payment_links WHERE user_id = ? AND status = 'paid'", [userId]),
     ]);
 
+    const paidCount = Number(paidLinks[0]?.total || 0);
     return {
-      payments: payments[0]?.total || 0,
-      completed: (completedPayments[0]?.total || 0) + (paidLinks[0]?.total || 0),
+      payments: paidCount,
+      completed: paidCount,
       links: links[0]?.total || 0,
+      pending: pendingLinks[0]?.total || 0,
       customers: customers[0]?.total || 0,
-      revenue: Number(paymentRevenue[0]?.revenue || 0) + Number(linkRevenue[0]?.revenue || 0),
+      revenue: Number(revenue[0]?.revenue || 0),
     };
   }
 
-  static async getPayments(userId) {
-    return await getQuery(
-      'SELECT id, tx_reference, identifier, status, amount, payment_method, phone_number, created_at FROM payments WHERE user_id = ? ORDER BY id DESC LIMIT 500',
-      [userId]
-    );
+  static async getPayments(_userId) {
+    // The current product does not receive provider notifications. Paid links are
+    // the single source of truth until a separate manual-receipt workflow exists.
+    return [];
   }
 
   static async getPaymentLinks(userId) {
@@ -105,15 +80,12 @@ class PaymentModel {
   static async getCustomers(userId) {
     return await getQuery(`
       SELECT phone_number, MAX(created_at) AS last_seen, COUNT(*) AS payment_count
-      FROM (
-        SELECT phone_number, created_at FROM payments WHERE user_id = ? AND phone_number IS NOT NULL AND phone_number != ''
-        UNION ALL
-        SELECT phone_number, created_at FROM payment_links WHERE user_id = ? AND phone_number IS NOT NULL AND phone_number != ''
-      )
+      FROM payment_links
+      WHERE user_id = ? AND phone_number IS NOT NULL AND phone_number != ''
       GROUP BY phone_number
       ORDER BY last_seen DESC
       LIMIT 200
-    `, [userId, userId]);
+    `, [userId]);
   }
 
   static async claimLegacyData(userId) {

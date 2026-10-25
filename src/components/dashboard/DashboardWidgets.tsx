@@ -1,8 +1,18 @@
 import React from "react";
+import type { ReactNode } from "react";
 import Icon from "../common/Icon";
 import { formatDate, formatMoney } from "../../utils/formatters";
+import type { Customer, PaymentLink, TransactionRow } from "../../types";
 
-export function MetricCard({ label, value, delta, icon, tone }) {
+interface MetricCardProps {
+  label: string;
+  value: ReactNode;
+  delta?: ReactNode;
+  icon: string;
+  tone: string;
+}
+
+export function MetricCard({ label, value, delta, icon, tone }: MetricCardProps) {
   return (
     <article className="metric-tile">
       <div className={`metric-icon ${tone}`}><Icon name={icon} size={18} /></div>
@@ -13,7 +23,7 @@ export function MetricCard({ label, value, delta, icon, tone }) {
   );
 }
 
-export function TransactionTable({ rows }) {
+export function TransactionTable({ rows }: { rows: TransactionRow[] }) {
   if (!rows.length) return <div className="table-empty"><div className="empty-icon"><Icon name="arrows" /></div><strong>Aucune transaction enregistrée</strong><span>Les liens créés sont consultables dans Liens de paiement.</span></div>;
 
   return (
@@ -32,14 +42,14 @@ export function TransactionTable({ rows }) {
   );
 }
 
-export function PaymentStatus({ status, source }) {
+export function PaymentStatus({ status, source }: { status: number | string; source?: string }) {
   const numericStatus = Number(status);
   const label = source === "manual_link" ? "Payé · manuel" : numericStatus === 1 ? "Réussi" : numericStatus === 0 ? "En attente" : "Échec";
   const tone = numericStatus === 1 ? "success" : numericStatus === 0 ? "pending" : "failed";
   return <span className={`status-badge ${tone}`}><i />{label}</span>;
 }
 
-export function PaymentStatusBadge({ status }) {
+export function PaymentStatusBadge({ status }: { status: string }) {
   const value = String(status || "pending").toLowerCase();
   const map = {
     pending: { label: "En attente", tone: "pending" },
@@ -50,7 +60,13 @@ export function PaymentStatusBadge({ status }) {
   return <span className={`status-badge ${current.tone}`}><i />{current.label}</span>;
 }
 
-export function PaymentLinksTable({ rows, onCopy, onStatusChange }) {
+interface PaymentLinksTableProps {
+  rows: PaymentLink[];
+  onCopy: (value: string) => void;
+  onStatusChange: (id: number, status: PaymentLink["status"]) => void;
+}
+
+export function PaymentLinksTable({ rows, onCopy, onStatusChange }: PaymentLinksTableProps) {
   if (!rows.length) return <div className="table-empty"><div className="empty-icon"><Icon name="link" /></div><strong>Aucun lien créé</strong><span>Créez un lien et partagez-le avec votre client.</span></div>;
   return (
     <div className="table-scroll">
@@ -78,7 +94,7 @@ export function PaymentLinksTable({ rows, onCopy, onStatusChange }) {
   );
 }
 
-export function CustomerTable({ rows }) {
+export function CustomerTable({ rows }: { rows: Customer[] }) {
   if (!rows.length) return <div className="table-empty"><div className="empty-icon"><Icon name="users" /></div><strong>Aucun client enregistré</strong><span>Ajoutez un numéro client à un lien de paiement pour le retrouver ici.</span></div>;
   return (
     <div className="table-scroll">

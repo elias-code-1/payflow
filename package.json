@@ -66,6 +66,10 @@
       "target": [
         "AppImage"
       ]
+    },
+    "flatpak": {
+      "runtimeVersion": "26.08",
+      "baseVersion": "26.08"
     }
   },
   "allowScripts": {

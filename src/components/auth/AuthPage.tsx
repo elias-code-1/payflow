@@ -1,12 +1,21 @@
 import React, { useState } from "react";
 import { api } from "../../services/api";
+import type { FormEvent } from "react";
+import type { User } from "../../types";
 
-export default function AuthPage({ hasAccounts, onAuthenticated }) {
-  const [mode, setMode] = useState(hasAccounts ? "login" : "register");
+type AuthMode = "login" | "register";
+
+interface AuthPageProps {
+  hasAccounts: boolean;
+  onAuthenticated: (user: User) => void | Promise<void>;
+}
+
+export default function AuthPage({ hasAccounts, onAuthenticated }: AuthPageProps) {
+  const [mode, setMode] = useState<AuthMode>(hasAccounts ? "login" : "register");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
-  async function submit(event) {
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setBusy(true);
     setError("");
@@ -14,12 +23,12 @@ export default function AuthPage({ hasAccounts, onAuthenticated }) {
     try {
       const action = mode === "register" ? api.register : api.login;
       const result = await action({
-        email: formData.get("email"),
-        password: formData.get("password"),
+        email: String(formData.get("email") || ""),
+        password: String(formData.get("password") || ""),
       });
-      onAuthenticated(result.user);
+      await onAuthenticated(result.user);
     } catch (requestError) {
-      setError(requestError.message || "Une erreur est survenue.");
+      setError(requestError instanceof Error ? requestError.message : "Une erreur est survenue.");
     } finally {
       setBusy(false);
     }

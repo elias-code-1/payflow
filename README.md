@@ -14,23 +14,23 @@ Ce README est le point d’entrée pour toute personne ou IA qui reprend le proj
 
 ## État actuel vérifié
 
-- Frontend React avec Vite, en JavaScript/JSX.
+- Frontend React/Vite en TypeScript/TSX; le backend reste en JavaScript.
 - Backend Express et persistance SQLite.
 - Authentification locale avec sessions cookie et comptes distincts.
-- Dashboard avec vue d’ensemble, transactions, liens, clients, analytique et paramètres.
+- Dashboard avec vue d’ensemble, encaissements manuels, liens, clients, analytique, paramètres et aide/don.
 - Création de liens PayGateGlobal à partir de la clé API configurée par compte.
 - Statut des liens modifiable manuellement (`pending`, `paid`, `cancelled`).
 - Landing page et dashboard ont des entrées séparées.
-- Aucun webhook de paiement n’est nécessaire au parcours actuel.
+- Aucun webhook n’est utilisé : PayFlow ne reçoit aucune notification de paiement.
 - La compilation `npm run build` a réussi lors de la dernière vérification. Vite signale un bundle dashboard supérieur à 500 kB.
 - Environnement local déjà lancé lors de la dernière session : Vite sur `http://127.0.0.1:5173/`, API sur `http://localhost:3001`. Vérifier qu’il est encore actif avant d’en lancer un autre.
 
 ## Ce qui n’est pas encore réalisé ou confirmé
 
 - Les fonctionnalités supplémentaires de la roadmap ne sont pas toutes implémentées.
-- Le projet est toujours en `.js` / `.jsx` ; la migration TypeScript/TSX n’a pas été faite.
+- Les sources frontend sont maintenant en `.ts` / `.tsx` avec `tsconfig.json`. Le type-check dédié reste à configurer lorsque les dépendances TypeScript et React pourront être installées.
 - L’utilitaire C de validation de sauvegarde SQLite n’a pas été créé.
-- La création/p publication d’un dépôt GitHub et le push ne sont pas confirmés.
+- Le dépôt public est [elias-code-1/payflow](https://github.com/elias-code-1/payflow), branche `main`.
 - Aucun workflow GitHub Actions de build n’est confirmé.
 - Les builds APK et EXE ne sont pas validés ici.
 - Ne pas considérer le projet prêt pour un déploiement public multi-utilisateur sans audit et durcissement.
@@ -67,12 +67,13 @@ server/
   models/                         accès aux données
   routes/api.js                   routes `/api`
 src/
-  main.jsx                        entrée landing page
-  dashboard/main.jsx              entrée dashboard
+  main.tsx                        entrée landing page
+  dashboard/main.tsx              entrée dashboard
   components/                     composants React
   pages/                          pages
-  services/api.js                 appels frontend vers `/api`
-  utils/                          formatage et calculs analytiques
+  services/api.ts                 appels frontend typés vers `/api`
+  types/                          modèles et contrats frontend
+  utils/                          formatage et calculs analytiques typés
 docs/                             documentation produit et technique
 desktop/main.cjs                  point d’entrée Electron
 ```
@@ -85,7 +86,7 @@ Les routes réellement présentes sont déclarées dans `server/routes/api.js`. 
 - Ne jamais modifier ou supprimer les données SQLite de l’utilisateur pour tester.
 - Avant une migration SQLite, examiner les données existantes et prévoir une migration non destructive.
 - Toutes les requêtes de données marchandes doivent être limitées à l’utilisateur authentifié.
-- Les statuts `paid` résultant d’une action dans le dashboard sont des confirmations locales, pas une confirmation indépendante du fournisseur.
+- Les transactions, revenus et graphiques visibles proviennent des liens marqués `paid` manuellement dans le dashboard.
 - L’app locale n’est pas automatiquement adaptée à un hébergement public ; examiner les sessions, secrets, stockage et modèle d’instance avant tout déploiement.
 
 ## Suite de travail suggérée

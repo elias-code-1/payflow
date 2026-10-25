@@ -15,7 +15,7 @@
 ### Dashboard
 
 - `GET /api/stats`
-- `GET /api/payments`
+- `GET /api/payments` — compatibilité historique ; ne reçoit aucun événement fournisseur
 - `GET /api/customers`
 - `GET /api/payment-links`
 - `GET /api/leads`
@@ -38,4 +38,5 @@ Les réponses utilisent du JSON. Les erreurs renvoient un message explicite en f
 
 - La clé API du fournisseur est enregistrée par compte.
 - Les statuts sont gérés localement dans l’application.
-- Aucune notification serveur n’est générée automatiquement par la plateforme.
+- Aucun webhook n’est exposé et aucune notification de paiement n’est reçue.
+- La page Transactions est calculée à partir des liens marqués payés manuellement.

@@ -26,9 +26,10 @@ src/
 │  └─ landing/
 ├─ pages/
 ├─ services/
+├─ types/                   # contrats TypeScript partagés
 ├─ utils/
-├─ main.jsx
-└─ dashboard/main.jsx
+├─ main.tsx
+└─ dashboard/main.tsx
 ```
 
 ## Backend
@@ -64,11 +65,11 @@ server/
 3. Dashboard charge les statistiques du compte
 4. Le marchand crée un lien
 5. Le lien est enregistré dans SQLite
-6. Le statut est modifié manuellement
-7. Les stats recalculent les revenus et conversions locales
+6. Le marchand vérifie le paiement puis modifie manuellement le statut
+7. Les stats recalculent les revenus et conversions locales à partir des liens payés
 
 ## Limites de conception
 
 - SQLite est conçu pour une utilisation locale ou mono-instance
 - Le projet n’est pas encore prêt pour un public multi-utilisateur sans migration vers PostgreSQL
-- Les fonctionnalités webhooks ne sont pas nécessaires pour le flux actuel
+- Aucun webhook ou notification fournisseur n’est utilisé ; les statuts sont manuels

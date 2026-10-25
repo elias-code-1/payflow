@@ -6,15 +6,16 @@ L’IA doit aider à maintenir, documenter, développer et améliorer le projet 
 
 ## 2. Règles importantes
 
-- Ne pas supposer un webhook fournisseur actif.
-- Ne pas transformer le dashboard en système de paiement automatique sans callback officiel.
-- Toujours traiter les statuts payés comme des confirmations locales ou manuelles.
+- PayFlow n’utilise aucun webhook et ne reçoit aucune notification de paiement.
+- Ne pas ajouter de callback ou de traitement de paiement automatique.
+- Tous les liens et encaissements affichés comme payés viennent d’une action manuelle dans le compte local.
 - Ne pas pousser une logique “direct send” ou “paiement envoyé automatiquement” sans consentement explicite.
 - Préserver l’isolation des comptes et les données locales.
 
 ## 3. Conventions de code
 
-- Code JavaScript / React actuel, avec possibilité de passer en TypeScript dans le futur.
+- Le frontend utilise TypeScript/TSX et des types partagés dans `src/types`. Le backend reste en CommonJS JavaScript.
+- Vite transpile le frontend. Ne pas annoncer de vérification TypeScript stricte tant que `typescript` et les types React ne sont pas installés et qu’un script typecheck n’existe pas.
 - Les modules frontend doivent rester séparés : composants, pages, services, utils.
 - Les modèles serveur doivent rester dans `server/models`.
 - Les contrôleurs doivent rester dans `server/controllers`.
@@ -37,6 +38,7 @@ L’IA doit aider à maintenir, documenter, développer et améliorer le projet 
 ## 6. Règles pour les IA embarquées
 
 - Les assistants doivent d’abord lire les docs avant de modifier le code.
-- Toute nouvelle feature doit être déclarée dans les docs avant d’être intégrée.
+- Toute fonctionnalité proposée doit être présentée à l’utilisateur et approuvée avant son implémentation.
+- Toute modification fonctionnelle doit mettre à jour les documents concernés dans `docs/` dans le même changement.
 - Un assistant ne doit pas promettre de build APK/EXE si l’environnement de build n’est pas prêt.
 - Les règles “local-first” doivent être respectées dans les nouvelles fonctionnalités.
