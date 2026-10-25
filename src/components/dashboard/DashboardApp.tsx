@@ -2,12 +2,13 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import { gsap } from "gsap";
 import { api } from "../../services/api";
-import { createIdentifier } from "../../utils/formatters";
+import { createIdentifier, downloadBlob } from "../../utils/formatters";
 import AuthPage from "../auth/AuthPage";
 import DashboardLayout, { navItems } from "./DashboardLayout";
 import DashboardPageBoundary from "./DashboardPageBoundary";
 import PaymentModal from "./PaymentModal";
 import HelpCommunityPage from "./HelpCommunityPage";
+import DownloadsGuidePage from "./DownloadsGuidePage";
 import { OverviewPage, TransactionsPage, SettingsPage } from "./DashboardPages";
 import { AdvancedAnalyticsPage, BackupsPage, CatalogPage, CustomersPage, ExportsPage, LinkManagementPage, ManualPaymentsPage, QRCodesPage, RemindersPage } from "./FeaturePages";
 import type { CatalogItem, CurrencyCode, Customer, CustomerProfile, DashboardPageId, DashboardStats, PaymentLink, PaymentLinkStatus, TransactionRow, User } from "../../types";
@@ -34,6 +35,8 @@ export default function DashboardApp() {
   const [paymentPrefill, setPaymentPrefill] = useState<{ description?: string; phone?: string; amount?: number; currency?: CurrencyCode; customerId?: number; catalogItemId?: number }>({});
   const [busy, setBusy] = useState(false);
   const [savingSettings, setSavingSettings] = useState(false);
+  const [creatingBackup, setCreatingBackup] = useState(false);
+  const [backupRevision, setBackupRevision] = useState(0);
   const [notice, setNotice] = useState("");
   const [noticeError, setNoticeError] = useState(false);
   const [query, setQuery] = useState("");
@@ -207,6 +210,33 @@ export default function DashboardApp() {
     setShowPayment(true);
   }
 
+  async function createQuickBackup(): Promise<void> {
+    if (creatingBackup) return;
+    setCreatingBackup(true);
+    try {
+      const result = await api.createBackup();
+      downloadBlob(
+        new Blob([JSON.stringify(result.document, null, 2)], { type: "application/json;charset=utf-8" }),
+        `payflow-sauvegarde-${result.id}-${new Date().toISOString().slice(0, 10)}.json`,
+      );
+      setBackupRevision((value) => value + 1);
+      const runningLocally = ["localhost", "127.0.0.1"].includes(window.location.hostname);
+      setNotice(
+        result.fileName
+          ? runningLocally
+            ? "Sauvegarde créée et enregistrée dans Téléchargements ainsi que dans l’historique PayFlow."
+            : "Sauvegarde créée dans PayFlow et téléchargement lancé."
+          : "Sauvegarde téléchargée et conservée dans l’historique PayFlow.",
+      );
+      setNoticeError(false);
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "La création de la sauvegarde a échoué.");
+      setNoticeError(true);
+    } finally {
+      setCreatingBackup(false);
+    }
+  }
+
   if (!authReady) return <main className="auth-shell"><div className="auth-loading">Chargement de votre espace local…</div></main>;
   if (!user) return <AuthPage hasAccounts={hasAccounts} onAuthenticated={async (nextUser) => { setHasAccounts(true); setUser(nextUser); setNotice(""); await refreshData(); }} />;
 
@@ -222,17 +252,18 @@ export default function DashboardApp() {
     case "catalog": content = <CatalogPage search={query} onRefresh={refreshData} onNotice={reportNotice} onCreateLink={(item) => openPayment({ description: item.name, amount: item.amount, currency: item.currency, catalogItemId: item.id })} />; break;
     case "qrCodes": content = <QRCodesPage links={links} onNotice={reportNotice} />; break;
     case "exports": content = <ExportsPage onNotice={reportNotice} />; break;
-    case "backups": content = <BackupsPage onRefresh={refreshData} onNotice={reportNotice} onRestoreComplete={() => setPage("overview")} />; break;
+    case "backups": content = <BackupsPage onRefresh={refreshData} onNotice={reportNotice} onRestoreComplete={() => setPage("overview")} backupRevision={backupRevision} />; break;
+    case "downloads": content = <DownloadsGuidePage search={query} onNotice={reportNotice} />; break;
     case "analytics": content = <AdvancedAnalyticsPage onNotice={reportNotice} />; break;
     case "reminders": content = <RemindersPage search={query} onNotice={reportNotice} />; break;
     case "settings": content = <SettingsPage configured={configured} saving={savingSettings} onSave={saveSettings} />; break;
-    case "support": content = <HelpCommunityPage />; break;
+    case "support": content = <HelpCommunityPage onNavigate={setPage} />; break;
     default: content = <section className="panel page-error"><h1>Cette page n’existe pas.</h1><button className="button button-primary" onClick={() => setPage("overview")}>Retour à la vue d’ensemble</button></section>;
   }
 
   return (
     <>
-      <DashboardLayout page={page} onNavigate={(nextPage: DashboardPageId) => { setPage(nextPage); setNotice(""); }} query={query} onQueryChange={setQuery} user={user} onLogout={logout}>
+      <DashboardLayout page={page} onNavigate={(nextPage: DashboardPageId) => { setPage(nextPage); setNotice(""); }} query={query} onQueryChange={setQuery} user={user} onLogout={logout} onCreateBackup={createQuickBackup} creatingBackup={creatingBackup}>
         <div className="dashboard-content" ref={pageRef}>
           {notice && <div className={`notice ${noticeError ? "notice-error" : ""}`} role={noticeError ? "alert" : "status"}><span>{notice.startsWith("https://") ? <><span>Lien prêt : </span><a className="payment-link" href={notice} target="_blank" rel="noreferrer">Ouvrir le lien de paiement</a><small className="payment-link-url">{notice}</small></> : notice}</span><button onClick={() => setNotice("")} aria-label="Fermer le message"><span aria-hidden="true">×</span></button></div>}
           <DashboardPageBoundary key={page} pageLabel={pageLabel} onReturnToOverview={() => setPage("overview")}>

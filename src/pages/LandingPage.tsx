@@ -16,18 +16,18 @@ export default function LandingPage() {
         <ProblemSection />
         <FeaturesSection />
         <HowItWorksSection />
+        <PlatformsSection />
+        <DownloadsSection />
+        <BuildInstructionsSection />
         <NetworksSection />
         <CurrencySection />
         <CodeSection />
         <DashboardPreviewSection />
         <UseCasesSection />
         <PrivacySection />
-        <PlatformsSection />
         <PricingSection />
         <TestimonialSection />
         <FaqSection />
-        <DownloadsSection />
-        <BuildInstructionsSection />
         <DonateSection />
         <FinalCtaSection />
       </main>

@@ -2,7 +2,7 @@ import React from "react";
 import Icon from "../common/Icon";
 import AmbientOrb from "./AmbientOrb";
 import { MetricCard, TransactionTable, PaymentLinksTable, CustomerTable } from "./DashboardWidgets";
-import { formatMoney } from "../../utils/formatters";
+import { formatMoney, parseAppDate } from "../../utils/formatters";
 import { getConfirmedPayments } from "../../utils/paymentAnalytics";
 import type { Customer, DashboardPageId, DashboardStats, PaymentLink, PaymentLinkStatus, TransactionRow } from "../../types";
 
@@ -28,8 +28,8 @@ function RevenueChart({ transactions, days, onDaysChange }: RevenueChartProps) {
   });
   for (const payment of transactions) {
     if ((payment.status !== "confirmed" && Number(payment.status) !== 1) || (payment.currency || "XOF") !== currency) continue;
-    const date = new Date(payment.created_at?.includes("T") ? payment.created_at : `${payment.created_at}Z`);
-    if (Number.isNaN(date.getTime()) || date.getTime() < cutoff) continue;
+    const date = parseAppDate(payment.created_at);
+    if (!date || date.getTime() < cutoff) continue;
     date.setHours(0, 0, 0, 0);
     const day = daily.find((entry) => entry.date.toDateString() === date.toDateString());
     if (day) day.revenue += Number(payment.amount || 0);
@@ -74,8 +74,8 @@ export function OverviewPage({ stats, configured, transactions, allTransactions,
   const cutoff = Date.now() - range * 24 * 60 * 60 * 1000;
   const rangePayments = allTransactions.filter((payment) => {
     if (payment.status !== "confirmed" && Number(payment.status) !== 1) return false;
-    const date = new Date(payment.created_at?.includes("T") ? payment.created_at : `${payment.created_at}Z`);
-    return !Number.isNaN(date.getTime()) && date.getTime() >= cutoff;
+    const date = parseAppDate(payment.created_at);
+    return Boolean(date && date.getTime() >= cutoff);
   });
   const revenueByCurrency = [...rangePayments.reduce((totals, payment) => {
     const currency = payment.currency || "XOF";
@@ -111,6 +111,7 @@ export function OverviewPage({ stats, configured, transactions, allTransactions,
           <button className="quick-action" onClick={() => configured ? onCreate() : onNavigate("settings")}><span className="quick-icon mint"><Icon name={configured ? "plus" : "settings"} /></span><span><strong>{configured ? "Créer un lien" : "Configurer les paiements"}</strong><small>{configured ? "Préparer un encaissement" : "Ajoutez votre clé pour commencer"}</small></span><Icon name="chevron" size={16} /></button>
           <button className="quick-action" onClick={() => onNavigate("links")}><span className="quick-icon lavender"><Icon name="link" /></span><span><strong>Gérer les liens</strong><small>Copier ou ouvrir un lien client</small></span><Icon name="chevron" size={16} /></button>
           <button className="quick-action" onClick={() => onNavigate(configured ? "backups" : "settings")}><span className="quick-icon peach"><Icon name={configured ? "database" : "settings"} /></span><span><strong>{configured ? "Protéger mes données" : "Configurer les paiements"}</strong><small>{configured ? "Télécharger une copie de sécurité" : "Enregistrer votre clé"}</small></span><Icon name="chevron" size={16} /></button>
+          <button className="quick-action" onClick={() => onNavigate("downloads")}><span className="quick-icon mint"><Icon name="download" /></span><span><strong>Téléchargements & tutoriels</strong><small>Installer sur Windows, Linux, Android ou iOS</small></span><Icon name="chevron" size={16} /></button>
           <div className="security-note"><span className="security-shield">✓</span><span><strong>Base SQLite locale</strong><small>Vos données restent sur cet appareil.</small></span></div>
         </div>
       </section>

@@ -19,7 +19,9 @@ function uniqueDownloadPath(fileName) {
 }
 
 async function startLocalApi() {
-  process.env.PAYFLOW_DB_PATH = path.join(app.getPath('userData'), 'payflow.sqlite');
+  const userDataDir = app.getPath('userData');
+  process.env.PAYFLOW_DB_PATH = path.join(userDataDir, 'payflow.sqlite');
+  process.env.PAYFLOW_BACKUP_DIR = path.join(userDataDir, 'backups');
   const { initDatabase } = require('../server/db');
   await initDatabase();
   require('../server/services/dailyBackup').startDailyBackupScheduler();

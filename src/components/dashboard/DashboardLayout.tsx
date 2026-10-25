@@ -17,6 +17,8 @@ interface DashboardLayoutProps {
   onQueryChange: (query: string) => void;
   user: User;
   onLogout: () => void;
+  onCreateBackup: () => void;
+  creatingBackup?: boolean;
   children: ReactNode;
 }
 
@@ -29,6 +31,7 @@ export const navItems: NavItem[] = [
   { id: "qrCodes", label: "QR codes", icon: "qr" },
   { id: "exports", label: "Exports", icon: "file" },
   { id: "backups", label: "Sauvegardes", icon: "database" },
+  { id: "downloads", label: "Téléchargements", icon: "download" },
   { id: "analytics", label: "Analytique", icon: "chart" },
   { id: "reminders", label: "Relances", icon: "bell" },
   { id: "transactions", label: "Historique", icon: "arrows" },
@@ -40,7 +43,7 @@ const mobileNavItems: Array<{ id: DashboardPageId; label: string }> = [
   { id: "support", label: "Aide & communauté" },
 ];
 
-export default function DashboardLayout({ page, onNavigate, query, onQueryChange, user, onLogout, children }: DashboardLayoutProps) {
+export default function DashboardLayout({ page, onNavigate, query, onQueryChange, user, onLogout, onCreateBackup, creatingBackup = false, children }: DashboardLayoutProps) {
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const currentLabel = page === "support" ? "Aide & communauté" : navItems.find((item) => item.id === page)?.label || "Paramètres";
 
@@ -85,6 +88,10 @@ export default function DashboardLayout({ page, onNavigate, query, onQueryChange
           <div className="topbar-actions">
             <label className={`search-box ${mobileSearchOpen ? "mobile-search-open" : ""}`}><Icon name="search" size={17} /><input autoFocus={mobileSearchOpen} value={query} onChange={(event) => onQueryChange(event.target.value)} placeholder="Rechercher..." aria-label="Rechercher dans la page" /></label>
             <button className="mobile-search-toggle" onClick={() => setMobileSearchOpen((value) => !value)} aria-label={mobileSearchOpen ? "Fermer la recherche" : "Ouvrir la recherche"} aria-expanded={mobileSearchOpen}><Icon name={mobileSearchOpen ? "close" : "search"} size={18} /></button>
+            <button type="button" className="button button-primary topbar-backup" onClick={onCreateBackup} disabled={creatingBackup} aria-label="Créer une sauvegarde">
+              {creatingBackup ? <span className="spinner" /> : <Icon name="download" size={16} />}
+              <span>{creatingBackup ? "Sauvegarde…" : "Créer une sauvegarde"}</span>
+            </button>
             <a className="topbar-donate" href={DONATION_URL} target="_blank" rel="noreferrer" aria-label="Soutenir PayFlow avec un don">
               <Icon name="heart" size={16} /><span>Faire un don</span>
             </a>
@@ -94,6 +101,7 @@ export default function DashboardLayout({ page, onNavigate, query, onQueryChange
         </header>
         <nav className="mobile-nav" aria-label="Navigation du dashboard mobile">
           <label><span>Aller à</span><select value={page} onChange={(event) => onNavigate(event.target.value as DashboardPageId)}>{mobileNavItems.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label>
+          <button type="button" onClick={onCreateBackup} disabled={creatingBackup} aria-label="Créer une sauvegarde"><Icon name="download" size={16} /><span>{creatingBackup ? "Copie…" : "Créer une sauvegarde"}</span></button>
           <button onClick={onLogout} aria-label="Déconnexion"><Icon name="logout" size={17} /><span>Quitter</span></button>
         </nav>
         <div className="page-content" id="dashboard-main">{children}</div>

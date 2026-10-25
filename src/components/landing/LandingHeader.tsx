@@ -9,7 +9,8 @@ export default function LandingHeader() {
         <button className="landing-menu-button" aria-label={menuOpen ? "Fermer le menu" : "Ouvrir le menu"} aria-expanded={menuOpen} onClick={() => setMenuOpen(!menuOpen)}>{menuOpen ? "×" : "☰"}</button>
         <nav className={menuOpen ? "is-open" : ""} aria-label="Navigation du site">
           <a href="#fonctionnalites" onClick={() => setMenuOpen(false)}>Fonctionnalités</a>
-          <a href="#comment-ca-marche" onClick={() => setMenuOpen(false)}>Comment ça marche</a>
+          <a href="#telechargements" onClick={() => setMenuOpen(false)}>Téléchargements</a>
+          <a href="#tutoriels-installation" onClick={() => setMenuOpen(false)}>Tutoriels</a>
           <a href="#securite" onClick={() => setMenuOpen(false)}>Confidentialité</a>
           <a href="#faq" onClick={() => setMenuOpen(false)}>FAQ</a>
         </nav>

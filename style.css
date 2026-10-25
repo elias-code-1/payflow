@@ -912,6 +912,11 @@ footer {
   gap: 17px;
 }
 
+.topbar-backup {
+  min-height: 37px;
+  white-space: nowrap;
+}
+
 .topbar-donate {
   min-height: 37px;
   display: inline-flex;
@@ -1788,7 +1793,7 @@ footer {
 
 .help-community-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 16px;
   margin-top: 10px;
 }
@@ -2186,6 +2191,28 @@ footer {
   margin-top: 3px;
 }
 
+.action-dialog-modal {
+  width: min(460px, 100%);
+}
+
+.action-dialog-modal .modal-heading p {
+  line-height: 1.55;
+}
+
+.action-dialog-modal label small {
+  color: var(--dashboard-muted);
+  font-size: 10px;
+  font-weight: 400;
+}
+
+.action-dialog-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 9px;
+  margin-top: 4px;
+}
+
 .spinner {
   width: 15px;
   height: 15px;
@@ -2322,6 +2349,10 @@ footer {
 
   .topbar-date,
   .topbar-divider {
+    display: none;
+  }
+
+  .topbar-backup {
     display: none;
   }
 
@@ -3303,4 +3334,339 @@ footer {
   .feature-form-actions > .button,
   .feature-reminder-actions > .button { flex: 1 1 100%; }
   .reminder-message { max-width: 80vw; }
+}
+
+/* Downloads & Complete Installation Tutorials */
+.downloads-guide-page {
+  gap: 24px !important;
+}
+
+.downloads-header-links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.downloads-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 5px;
+  border: 1px solid var(--dashboard-border);
+  border-radius: 10px;
+  background: #f5f9f7;
+  width: fit-content;
+  max-width: 100%;
+}
+
+.downloads-filter-tab {
+  min-height: 36px;
+  padding: 6px 14px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #546965;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: background .16s ease, color .16s ease, box-shadow .16s ease;
+}
+
+.downloads-filter-tab:hover {
+  color: var(--dashboard-ink);
+}
+
+.downloads-filter-tab.is-active {
+  background: #fff;
+  color: #0d7a64;
+  box-shadow: 0 2px 6px rgba(18, 56, 48, .07);
+}
+
+.downloads-catalog-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 14px;
+}
+
+.download-format-item {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 18px;
+  border: 1px solid var(--dashboard-border);
+  border-radius: 12px;
+  background: #fff;
+  transition: border-color .18s ease, background .18s ease;
+}
+
+.download-format-item.is-selected {
+  border-color: #97d7c3;
+  background: #f8fcf9;
+}
+
+.download-format-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  color: var(--dashboard-muted);
+  font-size: 11px;
+}
+
+.download-format-meta strong {
+  color: #0e7d66;
+  font-weight: 700;
+}
+
+.download-format-item h2 {
+  margin: 0;
+  color: var(--dashboard-ink);
+  font-size: 15px;
+  line-height: 1.35;
+}
+
+.download-format-item > p {
+  flex: 1;
+  margin: 0;
+  color: var(--dashboard-muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.download-format-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  width: 100%;
+  margin-top: 4px;
+}
+
+.download-format-actions .button {
+  min-height: 36px;
+  padding-inline: 11px;
+  font-size: 11px;
+}
+
+.tutorial-viewer {
+  display: grid;
+  gap: 20px;
+  margin-top: 8px;
+  padding-top: 26px;
+  border-top: 1px solid var(--dashboard-border);
+  scroll-margin-top: 90px;
+}
+
+.tutorial-viewer-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.tutorial-viewer-header h2 {
+  margin: 5px 0 6px;
+  color: var(--dashboard-ink);
+  font-size: clamp(19px, 2.1vw, 24px);
+  letter-spacing: -.5px;
+}
+
+.tutorial-viewer-header p {
+  max-width: 720px;
+  margin: 0;
+  color: var(--dashboard-muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.tutorial-quick-selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tutorial-selector-btn {
+  min-height: 34px;
+  padding: 5px 11px;
+  border: 1px solid var(--dashboard-border);
+  border-radius: 7px;
+  background: #fff;
+  color: #556a66;
+  font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace;
+  cursor: pointer;
+  transition: border-color .15s ease, background .15s ease, color .15s ease;
+}
+
+.tutorial-selector-btn:hover {
+  border-color: #b4dfd1;
+  color: #0e7d66;
+}
+
+.tutorial-selector-btn.is-active {
+  border-color: #159b80;
+  background: #edf9f4;
+  color: #0b6e59;
+}
+
+.tutorial-prereq-row {
+  padding: 12px 0;
+  border-block: 1px solid var(--dashboard-border);
+  color: var(--dashboard-muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.tutorial-prereq-row strong {
+  color: var(--dashboard-ink);
+}
+
+.tutorial-steps-list {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tutorial-step-row {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+  gap: 14px;
+  padding: 18px 0;
+  border-bottom: 1px solid #edf3f0;
+}
+
+.tutorial-step-row:last-child {
+  border-bottom: 0;
+}
+
+.tutorial-step-index {
+  color: #138a72;
+  font: 700 13px ui-monospace, SFMono-Regular, Menlo, monospace;
+  padding-top: 2px;
+}
+
+.tutorial-step-body {
+  min-width: 0;
+  display: grid;
+  gap: 7px;
+}
+
+.tutorial-step-body h3 {
+  margin: 0;
+  color: var(--dashboard-ink);
+  font-size: 14px;
+}
+
+.tutorial-step-body > p {
+  margin: 0;
+  color: var(--dashboard-muted);
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+.tutorial-command-box {
+  min-width: 0;
+  margin-top: 4px;
+  overflow: hidden;
+  border-radius: 9px;
+  background: #142b2b;
+  color: #e6f5ef;
+}
+
+.tutorial-command-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, .1);
+  color: #9ec8bb;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.tutorial-command-top button {
+  min-height: 28px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid rgba(255, 255, 255, .18);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, .07);
+  color: #ecf9f4;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.tutorial-command-top button:hover {
+  background: rgba(255, 255, 255, .15);
+}
+
+.tutorial-command-box pre {
+  margin: 0;
+  padding: 12px 14px;
+  overflow-x: auto;
+  font: 11px/1.65 ui-monospace, SFMono-Regular, Menlo, monospace;
+  white-space: pre;
+}
+
+.tutorial-reference-rows {
+  display: grid;
+  border-top: 1px solid var(--dashboard-border);
+}
+
+.tutorial-ref-row {
+  display: grid;
+  grid-template-columns: minmax(200px, 270px) minmax(0, 1fr);
+  gap: 8px 18px;
+  padding: 13px 0;
+  border-bottom: 1px solid #eef3f1;
+  color: var(--dashboard-muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.tutorial-ref-row:last-child {
+  border-bottom: 0;
+}
+
+.tutorial-ref-row strong {
+  color: var(--dashboard-ink);
+  font-size: 12px;
+}
+
+.tutorial-ref-row code {
+  color: #164e44;
+  font: 11px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 700px) {
+  .downloads-filter-bar {
+    width: 100%;
+  }
+
+  .downloads-filter-tab {
+    flex: 1 1 auto;
+    text-align: center;
+  }
+
+  .tutorial-step-row {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .tutorial-ref-row {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
 }

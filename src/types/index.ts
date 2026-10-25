@@ -1,5 +1,5 @@
 export type PaymentLinkStatus = "pending" | "paid" | "cancelled";
-export type DashboardPageId = "overview" | "transactions" | "links" | "manualPayments" | "customers" | "catalog" | "qrCodes" | "exports" | "backups" | "analytics" | "reminders" | "settings" | "support";
+export type DashboardPageId = "overview" | "transactions" | "links" | "manualPayments" | "customers" | "catalog" | "qrCodes" | "exports" | "backups" | "analytics" | "reminders" | "downloads" | "settings" | "support";
 export type CurrencyCode = "XOF" | "EUR" | "USD";
 
 export interface User {

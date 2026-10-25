@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { api } from "../../services/api";
-import { formatDate, formatMoney } from "../../utils/formatters";
+import { downloadBlob, formatDate, formatMoney, parseAppDate } from "../../utils/formatters";
 import { REMINDER_TEMPLATES, REMINDER_TEMPLATE_CATEGORIES, REMINDER_TEMPLATE_COUNT } from "../../data/reminderTemplates";
 import pythonBackupSource from "../../../tools/backup_snapshot.py?raw";
 import cBackupSource from "../../../tools/backup_verify.c?raw";
@@ -19,24 +19,25 @@ import type {
   ReminderLink,
 } from "../../types";
 import Icon from "../common/Icon";
+import ActionDialogModal, { type ActionDialogModalProps } from "./ActionDialogModal";
+
+type ActiveDialog = Omit<ActionDialogModalProps, "onCancel" | "busy">;
 
 function toLocalInput(value?: string | null): string {
-  if (!value) return new Date().toISOString().slice(0, 16);
-  const date = new Date(value.includes("T") ? value : `${value.replace(" ", "T")}Z`);
-  if (Number.isNaN(date.getTime())) return new Date().toISOString().slice(0, 16);
+  const date = parseAppDate(value) || new Date();
   return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
 }
 
-function downloadBlob(blob: Blob, filename: string): void {
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = filename;
-  anchor.style.display = "none";
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 30000);
+function isLinkExpiredLocally(link: { status?: string; expires_at?: string | null }): boolean {
+  if (link.status && link.status !== "pending") return false;
+  const expiry = parseAppDate(link.expires_at);
+  return Boolean(expiry && expiry.getTime() <= Date.now());
+}
+
+function linkStatusLabel(status: PaymentLink["status"]): string {
+  if (status === "paid") return "Payé manuellement";
+  if (status === "cancelled") return "Annulé";
+  return "En attente";
 }
 
 function shellQuote(value: string): string {
@@ -96,6 +97,8 @@ export function ManualPaymentsPage({ search, onNotice, onRefresh }: ManualPaymen
   const [to, setTo] = useState("");
   const [busy, setBusy] = useState(false);
   const [refresh, setRefresh] = useState(0);
+  const [dialog, setDialog] = useState<ActiveDialog | null>(null);
+  const [dialogBusy, setDialogBusy] = useState(false);
 
   useEffect(() => {
     Promise.all([api.getManualPayments({ status: status === "all" ? undefined : status, currency: currency === "all" ? undefined : currency, method: method === "all" ? undefined : method, customerId: customerFilter === "all" ? undefined : customerFilter, from: from || undefined, to: to || undefined }), api.getPaymentLinks(), api.getCustomerProfiles()])
@@ -113,12 +116,18 @@ export function ManualPaymentsPage({ search, onNotice, onRefresh }: ManualPaymen
     setBusy(true);
     const form = event.currentTarget;
     const data = new FormData(form);
+    const paidDate = parseAppDate(String(data.get("paidAt") || "")) || new Date(String(data.get("paidAt")));
+    if (Number.isNaN(paidDate.getTime())) {
+      onNotice("Date d’encaissement invalide.", true);
+      setBusy(false);
+      return;
+    }
     const payload = {
       amount: Number(String(data.get("amount")).replace(",", ".")),
       currency: String(data.get("currency")) as CurrencyCode,
       method: String(data.get("method") || ""),
       reference: String(data.get("reference") || ""),
-      paidAt: new Date(String(data.get("paidAt"))).toISOString(),
+      paidAt: paidDate.toISOString(),
       note: String(data.get("note") || ""),
       customerId: data.get("customerId") ? Number(data.get("customerId")) : null,
       paymentLinkId: data.get("paymentLinkId") ? Number(data.get("paymentLinkId")) : null,
@@ -126,8 +135,12 @@ export function ManualPaymentsPage({ search, onNotice, onRefresh }: ManualPaymen
     try {
       const wasEditing = Boolean(editing);
       if (editing) {
-        const reason = window.prompt("Motif de cette modification (obligatoire) :")?.trim();
-        if (!reason) { setBusy(false); return; }
+        const reason = String(data.get("reason") || "").trim();
+        if (!reason) {
+          onNotice("Veuillez indiquer le motif de cette modification.", true);
+          setBusy(false);
+          return;
+        }
         await api.updateManualPayment(editing.id, { ...payload, reason });
       } else {
         await api.createManualPayment(payload);
@@ -147,21 +160,36 @@ export function ManualPaymentsPage({ search, onNotice, onRefresh }: ManualPaymen
     catch (error) { onNotice(error instanceof Error ? error.message : "Historique indisponible.", true); }
   }
 
-  async function changeStatus(payment: ManualPayment) {
+  function changeStatus(payment: ManualPayment) {
     const next = payment.status === "confirmed" ? "void" : "confirmed";
-    const reason = window.prompt(next === "void" ? "Motif de l’annulation (obligatoire) :" : "Motif de la réactivation (obligatoire) :")?.trim();
-    if (!reason) return;
-    try {
-      await api.setManualPaymentStatus(payment.id, next, reason);
-      if (!await refreshDashboard(onRefresh)) { setRefresh((value) => value + 1); onNotice("Statut enregistré, mais le dashboard n’a pas pu s’actualiser.", true); return; }
-      onNotice(next === "void" ? "Saisie annulée; elle reste visible dans l’historique." : "Saisie réactivée.");
-      setRefresh((value) => value + 1);
-    } catch (error) { onNotice(error instanceof Error ? error.message : "Statut non modifié.", true); }
+    setDialog({
+      eyebrow: "STATUT DE L’ENCAISSEMENT",
+      title: next === "void" ? "Annuler cet encaissement" : "Réactiver cet encaissement",
+      description: `L’opération sera enregistrée dans l’historique local pour ${formatMoney(payment.amount, payment.currency)}.`,
+      confirmLabel: next === "void" ? "Annuler l’encaissement" : "Réactiver l’encaissement",
+      input: {
+        label: next === "void" ? "Motif de l’annulation (obligatoire)" : "Motif de la réactivation (obligatoire)",
+        placeholder: "Ex. Erreur de saisie ou règlement reconfirmé",
+        required: true,
+        maxLength: 300,
+      },
+      onConfirm: async (reason) => {
+        setDialogBusy(true);
+        try {
+          await api.setManualPaymentStatus(payment.id, next, reason);
+          setDialog(null);
+          if (!await refreshDashboard(onRefresh)) { setRefresh((value) => value + 1); onNotice("Statut enregistré, mais le dashboard n’a pas pu s’actualiser.", true); return; }
+          onNotice(next === "void" ? "Saisie annulée; elle reste visible dans l’historique." : "Saisie réactivée.");
+          setRefresh((value) => value + 1);
+        } catch (error) { onNotice(error instanceof Error ? error.message : "Statut non modifié.", true); }
+        finally { setDialogBusy(false); }
+      },
+    });
   }
 
   return <section className="panel full-panel feature-page">
     <PageHeading eyebrow="SUIVI MANUEL" title="Encaissements" description="Saisissez les règlements observés. PayFlow ne vérifie pas leur statut auprès du fournisseur." />
-    <details className="feature-form disclosure-form" open={!editing}>
+    <details className="feature-form disclosure-form" open>
       <summary>{editing ? `Modifier l’encaissement #${editing.id}` : "Ajouter un encaissement observé"}</summary>
       <form onSubmit={submit} key={editing?.id || "new-manual-payment"}>
         <label>Montant<input name="amount" type="number" min="0.01" step="0.01" required defaultValue={editing?.amount} /></label>
@@ -172,7 +200,13 @@ export function ManualPaymentsPage({ search, onNotice, onRefresh }: ManualPaymen
         <label>Lien associé (facultatif)<select name="paymentLinkId" defaultValue={editing?.payment_link_id || ""}><option value="">Aucun lien</option>{links.map((link) => <option key={link.id} value={link.id}>{link.identifier} · {link.description}</option>)}</select></label>
         <label>Référence facultative<input name="reference" maxLength={180} defaultValue={editing?.reference} /></label>
         <label className="feature-span">Note privée<textarea name="note" maxLength={2000} defaultValue={editing?.note} /></label>
-        {editing && <div className="feature-inline-note feature-span">La modification demande un motif et sera ajoutée à l’historique local.</div>}
+        {editing && (
+          <label className="feature-span">
+            Motif de cette modification (obligatoire)
+            <input name="reason" required maxLength={300} placeholder="Ex. Correction du montant ou de la référence" />
+            <small>La modification sera conservée dans l’historique local de cet encaissement.</small>
+          </label>
+        )}
         <div className="feature-form-actions feature-span"><button className="button button-primary" disabled={busy}>{busy ? "Enregistrement…" : editing ? "Enregistrer la modification" : "Enregistrer l’encaissement"}</button>{editing && <button type="button" className="button button-secondary" onClick={() => setEditing(null)}>Annuler</button>}</div>
       </form>
     </details>
@@ -184,6 +218,7 @@ export function ManualPaymentsPage({ search, onNotice, onRefresh }: ManualPaymen
       <td><span className={`feature-status ${payment.status}`}>{payment.status === "confirmed" ? "Confirmé · manuel" : "Annulé"}</span></td>
       <td><div className="feature-actions"><button onClick={() => { setEditing(payment); window.scrollTo({ top: 0, behavior: "smooth" }); }}>Modifier</button><button onClick={() => changeStatus(payment)}>{payment.status === "confirmed" ? "Annuler" : "Réactiver"}</button><button onClick={() => toggleHistory(payment.id)}>{historyId === payment.id ? "Masquer l’historique" : "Historique"}</button></div></td>
     </tr>{historyId === payment.id && <tr><td colSpan={6}><div className="feature-history">{history.length ? history.map((item) => <article key={item.id}><strong>{formatDate(item.changed_at, { dateStyle: "medium", timeStyle: "short" })}</strong><span>{item.reason}</span><small>{JSON.stringify(item.old_values)} → {JSON.stringify(item.new_values)}</small></article>) : <span>Aucune modification enregistrée.</span>}</div></td></tr>}</React.Fragment>)}</tbody></table></div>}
+    {dialog && <ActionDialogModal {...dialog} busy={dialogBusy} onCancel={() => setDialog(null)} />}
   </section>;
 }
 
@@ -207,6 +242,8 @@ export function CustomersPage({ search, onNotice, onCreateLink, onRefresh }: Cus
   const [mergePreview, setMergePreview] = useState<{ target: CustomerProfile; sources: CustomerProfile[]; links: number; receipts: number } | null>(null);
   const [refresh, setRefresh] = useState(0);
   const [busy, setBusy] = useState(false);
+  const [dialog, setDialog] = useState<ActiveDialog | null>(null);
+  const [dialogBusy, setDialogBusy] = useState(false);
 
   useEffect(() => {
     api.getCustomerProfiles({ q: search || undefined, archived: showArchived ? "true" : "false", from: activityFrom || undefined, to: activityTo || undefined })
@@ -258,18 +295,28 @@ export function CustomersPage({ search, onNotice, onCreateLink, onRefresh }: Cus
     } catch (error) { onNotice(error instanceof Error ? error.message : "Archivage impossible.", true); }
   }
 
-  async function removeCustomer(customer: CustomerProfile, mode: "delete" | "anonymize") {
-    const text = mode === "anonymize"
-      ? "Anonymiser les coordonnées et notes de ce client? Les liens et encaissements garderont leur historique."
-      : "Supprimer cette fiche sans historique associé? L’action est définitive.";
-    if (!window.confirm(text)) return;
-    try {
-      await api.deleteCustomer(customer.id, mode);
-      setRefresh((value) => value + 1);
-      setSelected(null);
-      const refreshed = await refreshDashboard(onRefresh);
-      onNotice(refreshed ? (mode === "anonymize" ? "Coordonnées du client anonymisées." : "Fiche client supprimée.") : "Modification enregistrée, mais le dashboard n’a pas pu s’actualiser.", !refreshed);
-    } catch (error) { onNotice(error instanceof Error ? error.message : "Suppression impossible.", true); }
+  function removeCustomer(customer: CustomerProfile, mode: "delete" | "anonymize") {
+    const label = customer.full_name || customer.email || customer.phone_number || "ce client";
+    setDialog({
+      eyebrow: mode === "anonymize" ? "CONFIDENTIALITÉ" : "SUPPRESSION",
+      title: mode === "anonymize" ? "Anonymiser cette fiche client" : "Supprimer cette fiche client",
+      description: mode === "anonymize"
+        ? `Anonymiser les coordonnées et notes de ${label} ? Les liens et encaissements garderont leur historique.`
+        : `Supprimer définitivement la fiche de ${label} sans historique associé ?`,
+      confirmLabel: mode === "anonymize" ? "Anonymiser" : "Supprimer",
+      onConfirm: async () => {
+        setDialogBusy(true);
+        try {
+          await api.deleteCustomer(customer.id, mode);
+          setDialog(null);
+          setRefresh((value) => value + 1);
+          setSelected(null);
+          const refreshed = await refreshDashboard(onRefresh);
+          onNotice(refreshed ? (mode === "anonymize" ? "Coordonnées du client anonymisées." : "Fiche client supprimée.") : "Modification enregistrée, mais le dashboard n’a pas pu s’actualiser.", !refreshed);
+        } catch (error) { onNotice(error instanceof Error ? error.message : "Suppression impossible.", true); }
+        finally { setDialogBusy(false); }
+      },
+    });
   }
 
   async function previewMerge() {
@@ -280,19 +327,30 @@ export function CustomersPage({ search, onNotice, onCreateLink, onRefresh }: Cus
     catch (error) { onNotice(error instanceof Error ? error.message : "Prévisualisation impossible.", true); }
   }
 
-  async function confirmMerge() {
-    if (!mergePreview || !window.confirm(`Fusionner ${mergePreview.sources.length} fiche(s) dans ${mergePreview.target.full_name || mergePreview.target.email || mergePreview.target.phone_number}? ${mergePreview.links} lien(s) et ${mergePreview.receipts} encaissement(s) seront rattachés à la fiche cible.`)) return;
-    try {
-      await api.mergeCustomers(mergePreview.target.id, mergePreview.sources.map((row) => row.id));
-      setMergePreview(null); setSelectedIds([]); setRefresh((value) => value + 1);
-      const refreshed = await refreshDashboard(onRefresh);
-      onNotice(refreshed ? "Fusion terminée. L’historique des liens et encaissements est conservé." : "Fusion terminée, mais le dashboard n’a pas pu s’actualiser.", !refreshed);
-    } catch (error) { onNotice(error instanceof Error ? error.message : "Fusion impossible.", true); }
+  function confirmMerge() {
+    if (!mergePreview) return;
+    setDialog({
+      eyebrow: "FUSION DE DOUBLONS",
+      title: "Confirmer la fusion des fiches",
+      description: `Fusionner ${mergePreview.sources.length} fiche(s) dans ${mergePreview.target.full_name || mergePreview.target.email || mergePreview.target.phone_number} ? ${mergePreview.links} lien(s) et ${mergePreview.receipts} encaissement(s) seront rattachés à la fiche cible.`,
+      confirmLabel: "Fusionner",
+      onConfirm: async () => {
+        setDialogBusy(true);
+        try {
+          await api.mergeCustomers(mergePreview.target.id, mergePreview.sources.map((row) => row.id));
+          setDialog(null);
+          setMergePreview(null); setSelectedIds([]); setRefresh((value) => value + 1);
+          const refreshed = await refreshDashboard(onRefresh);
+          onNotice(refreshed ? "Fusion terminée. L’historique des liens et encaissements est conservé." : "Fusion terminée, mais le dashboard n’a pas pu s’actualiser.", !refreshed);
+        } catch (error) { onNotice(error instanceof Error ? error.message : "Fusion impossible.", true); }
+        finally { setDialogBusy(false); }
+      },
+    });
   }
 
   return <section className="panel full-panel feature-page">
     <PageHeading eyebrow="RELATION CLIENT" title="Clients" description="Coordonnées, historique local, tags et fiches archivées de ce compte." action={<button className="button button-secondary" onClick={() => setShowArchived((value) => !value)}>{showArchived ? "Voir les fiches actives" : "Voir les archives"}</button>} />
-    <details className="feature-form disclosure-form" open={!editing}><summary>{editing ? `Modifier ${editing.full_name || editing.email || editing.phone_number}` : "Créer une fiche client"}</summary>
+    <details className="feature-form disclosure-form" open><summary>{editing ? `Modifier ${editing.full_name || editing.email || editing.phone_number}` : "Créer une fiche client"}</summary>
       <form onSubmit={submit} key={editing?.id || "new-customer-profile"}>
         <label>Nom<input name="full_name" maxLength={180} defaultValue={editing?.full_name} /></label><label>Téléphone<input name="phone_number" type="tel" maxLength={80} defaultValue={editing?.phone_number} /></label>
         <label>E-mail<input name="email" type="email" maxLength={254} defaultValue={editing?.email} /></label><label>Entreprise<input name="company" maxLength={180} defaultValue={editing?.company} /></label>
@@ -317,6 +375,7 @@ export function CustomersPage({ search, onNotice, onCreateLink, onRefresh }: Cus
       <h3>Encaissements associés</h3><div className="compact-records">{details.receipts.length ? details.receipts.map((receipt) => <article key={receipt.id}><strong>{formatMoney(receipt.amount, receipt.currency)} · {receipt.method}</strong><span>{receipt.status === "confirmed" ? "Confirmé · manuel" : "Annulé"}</span><small>{receipt.link_identifier || receipt.reference || "Sans lien"} · {formatDate(receipt.paid_at)}</small></article>) : <span>Aucun encaissement associé.</span>}</div>
       <button className="button button-secondary" onClick={() => { setSelected(null); setDetails(null); }}>Fermer la fiche</button>
     </div>}
+    {dialog && <ActionDialogModal {...dialog} busy={dialogBusy} onCancel={() => setDialog(null)} />}
   </section>;
 }
 
@@ -370,7 +429,7 @@ export function CatalogPage({ search, onNotice, onCreateLink, onRefresh }: Catal
 
   return <section className="panel full-panel feature-page">
     <PageHeading eyebrow="OFFRE COMMERCIALE" title="Catalogue" description="Articles réutilisables pour préparer des liens cohérents. Le lien conserve le prix utilisé lors de sa création." action={<button className="button button-secondary" onClick={() => setShowArchived((value) => !value)}>{showArchived ? "Voir les articles actifs" : "Voir les archives"}</button>} />
-    <details className="feature-form disclosure-form" open={!editing}><summary>{editing ? `Modifier ${editing.name}` : "Ajouter un article"}</summary><form onSubmit={submit} key={editing?.id || "new-catalog-item"}>
+    <details className="feature-form disclosure-form" open><summary>{editing ? `Modifier ${editing.name}` : "Ajouter un article"}</summary><form onSubmit={submit} key={editing?.id || "new-catalog-item"}>
       <label>Nom<input name="name" required maxLength={180} defaultValue={editing?.name} /></label><label>Référence SKU<input name="sku" maxLength={80} defaultValue={editing?.sku} /></label>
       <label>Prix<input name="amount" type="number" min="0.01" step="0.01" required defaultValue={editing?.amount} /></label><label>Devise<select name="currency" defaultValue={editing?.currency || "XOF"}><option value="XOF">XOF</option><option value="EUR">EUR</option><option value="USD">USD</option></select></label>
       <label>Catégorie<input name="category" maxLength={100} defaultValue={editing?.category} /></label><label>Description<input name="description" maxLength={1000} defaultValue={editing?.description} /></label>
@@ -391,8 +450,8 @@ interface LinkManagementPageProps {
   search: string;
   onNotice: (message: string, isError?: boolean) => void;
   onCopy: (value: string) => void;
-  onStatusChange: (id: number, status: PaymentLink["status"], reason?: string) => void;
-  onRefresh: () => void;
+  onStatusChange: (id: number, status: PaymentLink["status"], reason?: string) => void | Promise<void>;
+  onRefresh: () => Promise<void>;
 }
 
 export function LinkManagementPage({ links, search, onNotice, onCopy, onStatusChange, onRefresh }: LinkManagementPageProps) {
@@ -410,6 +469,8 @@ export function LinkManagementPage({ links, search, onNotice, onCopy, onStatusCh
   const [historyId, setHistoryId] = useState<number | null>(null);
   const [history, setHistory] = useState<PaymentLinkHistory[]>([]);
   const [selectedDetail, setSelectedDetail] = useState<PaymentLink | null>(null);
+  const [dialog, setDialog] = useState<ActiveDialog | null>(null);
+  const [dialogBusy, setDialogBusy] = useState(false);
 
   const customers = useMemo(() => [...new Map(links.filter((link) => link.customer_id).map((link) => [link.customer_id, { id: Number(link.customer_id), name: link.customer_name || link.phone_number || `Client #${link.customer_id}` }])).values()], [links]);
   const methods = useMemo(() => [...new Set(links.map((link) => link.payment_method).filter(Boolean))], [links]);
@@ -419,7 +480,7 @@ export function LinkManagementPage({ links, search, onNotice, onCopy, onStatusCh
     const lowerBound = minimum ? Number(minimum) : null;
     const upperBound = maximum ? Number(maximum) : null;
     return links.filter((link) => {
-      const expired = Boolean(link.status === "pending" && link.expires_at && new Date(String(link.expires_at).replace(" ", "T") + "Z").getTime() <= Date.now());
+      const expired = isLinkExpiredLocally(link);
       const displayStatus = link.archived_at ? "archived" : expired ? "expired" : link.status;
       const date = String(link.created_at).slice(0, 10);
       const amount = Number(link.display_amount ?? link.amount);
@@ -436,14 +497,18 @@ export function LinkManagementPage({ links, search, onNotice, onCopy, onStatusCh
     });
   }, [links, search, status, currency, method, customerId, catalogItemId, from, to, minimum, maximum, includeArchived]);
   const selectedVisibleIds = visible.filter((link) => selectedIds.includes(link.id)).map((link) => link.id);
+  const activeDetail = selectedDetail ? (links.find((item) => item.id === selectedDetail.id) || selectedDetail) : null;
 
   async function updateLifecycle(link: PaymentLink, patch: { archived?: boolean; expiresAt?: string | null; reason?: string }) {
-    try { await api.changePaymentLinkLifecycle(link.id, patch); onRefresh(); onNotice("Cycle de vie du lien mis à jour. L’URL chez le fournisseur n’est pas désactivée par PayFlow."); }
-    catch (error) { onNotice(error instanceof Error ? error.message : "Modification du lien impossible.", true); }
+    try {
+      await api.changePaymentLinkLifecycle(link.id, patch);
+      await refreshDashboard(onRefresh);
+      onNotice("Cycle de vie du lien mis à jour. L’URL chez le fournisseur n’est pas désactivée par PayFlow.");
+    } catch (error) { onNotice(error instanceof Error ? error.message : "Modification du lien impossible.", true); }
   }
 
   async function duplicate(link: PaymentLink) {
-    try { const result = await api.duplicatePaymentLink(link.id); onRefresh(); onNotice(`Nouveau lien créé : ${result.identifier}`); }
+    try { const result = await api.duplicatePaymentLink(link.id); await refreshDashboard(onRefresh); onNotice(`Nouveau lien créé : ${result.identifier}`); }
     catch (error) { onNotice(error instanceof Error ? error.message : "Duplication impossible.", true); }
   }
 
@@ -453,24 +518,123 @@ export function LinkManagementPage({ links, search, onNotice, onCopy, onStatusCh
     catch (error) { onNotice(error instanceof Error ? error.message : "Historique indisponible.", true); }
   }
 
-  async function bulkArchive() {
-    if (!selectedVisibleIds.length || !window.confirm(`Archiver ${selectedVisibleIds.length} lien(s) dans PayFlow? Les URL externes peuvent encore fonctionner.`)) return;
-    try {
-      const result = await api.bulkArchivePaymentLinks(selectedVisibleIds);
-      setSelectedIds((ids) => ids.filter((id) => !selectedVisibleIds.includes(id)));
-      const refreshed = await refreshDashboard(onRefresh);
-      onNotice(refreshed ? `${result.archived} lien(s) archivé(s) localement.` : `${result.archived} lien(s) archivé(s), mais le dashboard n’a pas pu s’actualiser.`, !refreshed);
-    }
-    catch (error) { onNotice(error instanceof Error ? error.message : "Archivage groupé impossible.", true); }
+  function bulkArchive() {
+    if (!selectedVisibleIds.length) return;
+    setDialog({
+      eyebrow: "ARCHIVAGE GROUPÉ",
+      title: `Archiver ${selectedVisibleIds.length} lien(s)`,
+      description: `Archiver ${selectedVisibleIds.length} lien(s) dans PayFlow ? Les URL externes chez PayGateGlobal peuvent rester actives.`,
+      confirmLabel: "Archiver la sélection",
+      onConfirm: async () => {
+        setDialogBusy(true);
+        try {
+          const result = await api.bulkArchivePaymentLinks(selectedVisibleIds);
+          setDialog(null);
+          setSelectedIds((ids) => ids.filter((id) => !selectedVisibleIds.includes(id)));
+          const refreshed = await refreshDashboard(onRefresh);
+          onNotice(refreshed ? `${result.archived} lien(s) archivé(s) localement.` : `${result.archived} lien(s) archivé(s), mais le dashboard n’a pas pu s’actualiser.`, !refreshed);
+        } catch (error) { onNotice(error instanceof Error ? error.message : "Archivage groupé impossible.", true); }
+        finally { setDialogBusy(false); }
+      },
+    });
   }
 
-  async function exportSelected() {
-    if (!selectedVisibleIds.length || !window.confirm(`Exporter ${selectedVisibleIds.length} lien(s) sélectionné(s) en CSV? Le token des URL sera masqué.`)) return;
-    try {
-      const blob = await api.downloadExport("links", "csv", { ids: selectedVisibleIds.join(",") });
-      downloadBlob(blob, `payflow-liens-selection-${new Date().toISOString().slice(0, 10)}.csv`);
-      onNotice(`${selectedVisibleIds.length} lien(s) exporté(s) en CSV.`);
-    } catch (error) { onNotice(error instanceof Error ? error.message : "Export de la sélection impossible.", true); }
+  function exportSelected() {
+    if (!selectedVisibleIds.length) return;
+    setDialog({
+      eyebrow: "EXPORT CSV",
+      title: `Exporter ${selectedVisibleIds.length} lien(s)`,
+      description: `Exporter ${selectedVisibleIds.length} lien(s) sélectionné(s) au format CSV ? Le token secret des URL sera masqué.`,
+      confirmLabel: "Exporter en CSV",
+      onConfirm: async () => {
+        setDialogBusy(true);
+        try {
+          const blob = await api.downloadExport("links", "csv", { ids: selectedVisibleIds.join(",") });
+          downloadBlob(blob, `payflow-liens-selection-${new Date().toISOString().slice(0, 10)}.csv`);
+          setDialog(null);
+          onNotice(`${selectedVisibleIds.length} lien(s) exporté(s) en CSV.`);
+        } catch (error) { onNotice(error instanceof Error ? error.message : "Export de la sélection impossible.", true); }
+        finally { setDialogBusy(false); }
+      },
+    });
+  }
+
+  function requestStatusChange(link: PaymentLink, next: PaymentLink["status"]) {
+    setDialog({
+      eyebrow: "CONFIRMATION MANUELLE",
+      title: `Passer à « ${linkStatusLabel(next)} »`,
+      description: `Confirmez-vous la saisie manuelle « ${linkStatusLabel(next)} » pour ${link.identifier} ? PayFlow ne vérifie pas automatiquement le paiement auprès du fournisseur.`,
+      confirmLabel: "Confirmer le statut",
+      input: {
+        label: "Motif (facultatif)",
+        placeholder: "Ex. Reçu T-Money vérifié sur le téléphone marchand",
+        maxLength: 300,
+      },
+      onConfirm: async (reason) => {
+        setDialogBusy(true);
+        try {
+          await onStatusChange(link.id, next, reason);
+          setDialog(null);
+          if (historyId === link.id) {
+            try { setHistory(await api.getPaymentLinkHistory(link.id)); } catch { /* ignore */ }
+          }
+        } finally {
+          setDialogBusy(false);
+        }
+      },
+    });
+  }
+
+  function requestExpirationEdit(link: PaymentLink) {
+    setDialog({
+      eyebrow: "EXPIRATION LOCALE",
+      title: `Expiration de ${link.identifier}`,
+      description: "Choisissez une date d’expiration locale dans PayFlow (l’URL chez PayGateGlobal n’est pas modifiée).",
+      confirmLabel: "Enregistrer l’expiration",
+      input: {
+        label: "Date et heure d’expiration locale",
+        type: "datetime-local",
+        initialValue: link.expires_at ? toLocalInput(link.expires_at) : "",
+        helperText: "Laissez le champ vide pour supprimer l’expiration locale.",
+        clearLabel: link.expires_at ? "Effacer l’expiration" : undefined,
+      },
+      onConfirm: async (value) => {
+        const parsed = value ? new Date(value) : null;
+        if (parsed && Number.isNaN(parsed.getTime())) {
+          onNotice("Date d’expiration invalide.", true);
+          return;
+        }
+        setDialogBusy(true);
+        try {
+          await updateLifecycle(link, { expiresAt: parsed ? parsed.toISOString() : null });
+          setDialog(null);
+        } finally {
+          setDialogBusy(false);
+        }
+      },
+    });
+  }
+
+  function requestArchiveToggle(link: PaymentLink) {
+    if (link.archived_at) {
+      void updateLifecycle(link, { archived: false, reason: "Restauration manuelle" });
+      return;
+    }
+    setDialog({
+      eyebrow: "ARCHIVAGE LOCAL",
+      title: `Archiver ${link.identifier}`,
+      description: "Archiver ce lien dans PayFlow ? L’URL externe chez le fournisseur peut rester active.",
+      confirmLabel: "Archiver le lien",
+      onConfirm: async () => {
+        setDialogBusy(true);
+        try {
+          await updateLifecycle(link, { archived: true, reason: "Archivage manuel" });
+          setDialog(null);
+        } finally {
+          setDialogBusy(false);
+        }
+      },
+    });
   }
 
   return <section className="panel full-panel feature-page">
@@ -487,7 +651,7 @@ export function LinkManagementPage({ links, search, onNotice, onCopy, onStatusCh
     </div>
     <div className="feature-filters"><span>{visible.length} lien(s) correspondant aux filtres.</span>{selectedVisibleIds.length > 0 && <div className="feature-actions"><button className="button button-secondary" onClick={exportSelected}>Exporter la sélection ({selectedVisibleIds.length})</button><button className="button button-secondary" onClick={bulkArchive}>Archiver la sélection ({selectedVisibleIds.length})</button></div>}</div>
     {!visible.length ? <EmptyRows title="Aucun lien correspondant" description="Modifiez les filtres ou créez un nouveau lien." /> : <div className="table-scroll"><table><thead><tr><th></th><th>DESCRIPTION / CLIENT</th><th>RÉFÉRENCE</th><th>DATE / EXPIRATION LOCALE</th><th>MONTANT</th><th>STATUT</th><th>ACTIONS</th></tr></thead><tbody>{visible.map((link) => {
-      const expired = Boolean(link.status === "pending" && link.expires_at && new Date(String(link.expires_at).replace(" ", "T") + "Z").getTime() <= Date.now());
+      const expired = isLinkExpiredLocally(link);
       const displayStatus = link.archived_at ? "archived" : expired ? "expired" : link.status;
       return <React.Fragment key={link.id}><tr>
         <td><input type="checkbox" aria-label={`Sélectionner ${link.identifier}`} checked={selectedIds.includes(link.id)} onChange={(event) => setSelectedIds((ids) => event.target.checked ? [...ids, link.id] : ids.filter((id) => id !== link.id))} /></td>
@@ -498,16 +662,15 @@ export function LinkManagementPage({ links, search, onNotice, onCopy, onStatusCh
           {!link.archived_at && <select value={link.status} aria-label={`Changer manuellement le statut de ${link.identifier}`} onChange={(event) => {
             const next = event.target.value as PaymentLink["status"];
             if (next === link.status) return;
-            if (!window.confirm(`Confirmez-vous la saisie manuelle « ${next} » pour ${link.identifier}? PayFlow ne vérifie pas le paiement.`)) return;
-            const reason = window.prompt("Motif facultatif :") || "";
-            onStatusChange(link.id, next, reason);
+            requestStatusChange(link, next);
           }}><option value="pending">En attente</option><option value="paid">Payé manuellement</option><option value="cancelled">Annulé</option></select>}
         </td>
-        <td><div className="feature-actions"><button onClick={() => setSelectedDetail(link)}>Détails</button><button onClick={() => onCopy(link.payment_url)}>Copier URL</button><a href={link.payment_url} target="_blank" rel="noreferrer">Ouvrir</a><button disabled={Boolean(link.archived_at)} onClick={() => duplicate(link)}>Dupliquer</button><button onClick={() => { const value = window.prompt("Nouvelle expiration locale (AAAA-MM-JJTHH:mm). Laisser vide pour effacer :", link.expires_at ? toLocalInput(link.expires_at) : ""); if (value === null) return; const date = value ? new Date(value) : null; if (date && Number.isNaN(date.getTime())) { onNotice("Date d’expiration invalide.", true); return; } updateLifecycle(link, { expiresAt: date ? date.toISOString() : null }); }}>Expiration</button><button onClick={() => { if (!link.archived_at && !window.confirm("Archiver ce lien dans PayFlow? L’URL externe peut rester active.")) return; updateLifecycle(link, { archived: !link.archived_at, reason: link.archived_at ? "Restauration manuelle" : "Archivage manuel" }); }}>{link.archived_at ? "Restaurer" : "Archiver"}</button><button onClick={() => openHistory(link.id)}>{historyId === link.id ? "Masquer" : "Historique"}</button></div></td>
+        <td><div className="feature-actions"><button onClick={() => setSelectedDetail(link)}>Détails</button><button onClick={() => onCopy(link.payment_url)}>Copier URL</button><a href={link.payment_url} target="_blank" rel="noreferrer">Ouvrir</a><button disabled={Boolean(link.archived_at)} onClick={() => duplicate(link)}>Dupliquer</button><button onClick={() => requestExpirationEdit(link)}>Expiration</button><button onClick={() => requestArchiveToggle(link)}>{link.archived_at ? "Restaurer" : "Archiver"}</button><button onClick={() => openHistory(link.id)}>{historyId === link.id ? "Masquer" : "Historique"}</button></div></td>
       </tr>{historyId === link.id && <tr><td colSpan={7}><div className="feature-history">{history.length ? history.map((item) => <article key={item.id}><strong>{item.action} · {formatDate(item.created_at, { dateStyle: "medium", timeStyle: "short" })}</strong><span>{item.reason || "Sans motif"}</span><small>{JSON.stringify(item.old_value)} → {JSON.stringify(item.new_value)}</small></article>) : <span>Aucun changement enregistré.</span>}</div></td></tr>}</React.Fragment>;
     })}</tbody></table></div>}
-    {selectedDetail && <div className="feature-detail"><div className="detail-heading"><div><div className="eyebrow">FICHE LIEN · {selectedDetail.identifier}</div><h2>{selectedDetail.description}</h2></div><button className="button button-secondary" onClick={() => setSelectedDetail(null)}>Fermer</button></div><p>Montant affiché : {formatMoney(selectedDetail.display_amount ?? selectedDetail.amount, selectedDetail.currency)} · Montant transmis : {formatMoney(selectedDetail.amount, "XOF")}</p><p>Client : {selectedDetail.customer_name || selectedDetail.phone_number || "Aucun"} · Article : {selectedDetail.catalog_item_name || "Lien libre"}</p><p>Créé le {formatDate(selectedDetail.created_at, { dateStyle: "long", timeStyle: "short" })} · Statut mis à jour le {formatDate(selectedDetail.status_updated_at, { dateStyle: "long", timeStyle: "short" })} · Expiration locale : {formatDate(selectedDetail.expires_at, { dateStyle: "long", timeStyle: "short" })}</p><code className="feature-url">{selectedDetail.payment_url}</code><div className="feature-actions"><button onClick={() => onCopy(selectedDetail.payment_url)}>Copier l’URL</button><a href={selectedDetail.payment_url} target="_blank" rel="noreferrer">Ouvrir l’URL</a><button onClick={() => openHistory(selectedDetail.id)}>Afficher l’historique</button></div></div>}
+    {activeDetail && <div className="feature-detail"><div className="detail-heading"><div><div className="eyebrow">FICHE LIEN · {activeDetail.identifier}</div><h2>{activeDetail.description}</h2></div><button className="button button-secondary" onClick={() => setSelectedDetail(null)}>Fermer</button></div><p>Montant affiché : {formatMoney(activeDetail.display_amount ?? activeDetail.amount, activeDetail.currency)} · Montant transmis : {formatMoney(activeDetail.amount, "XOF")}</p><p>Client : {activeDetail.customer_name || activeDetail.phone_number || "Aucun"} · Article : {activeDetail.catalog_item_name || "Lien libre"}</p><p>Créé le {formatDate(activeDetail.created_at, { dateStyle: "long", timeStyle: "short" })} · Statut mis à jour le {formatDate(activeDetail.status_updated_at, { dateStyle: "long", timeStyle: "short" })} · Expiration locale : {formatDate(activeDetail.expires_at, { dateStyle: "long", timeStyle: "short" })}</p><code className="feature-url">{activeDetail.payment_url}</code><div className="feature-actions"><button onClick={() => onCopy(activeDetail.payment_url)}>Copier l’URL</button><a href={activeDetail.payment_url} target="_blank" rel="noreferrer">Ouvrir l’URL</a><button onClick={() => openHistory(activeDetail.id)}>Afficher l’historique</button></div></div>}
     <p className="feature-warning">« Expiré » et « archivé » ne désactivent pas le lien chez PayGateGlobal. Vérifiez directement le fournisseur si son état externe est important.</p>
+    {dialog && <ActionDialogModal {...dialog} busy={dialogBusy} onCancel={() => setDialog(null)} />}
   </section>;
 }
 
@@ -538,7 +701,7 @@ export function QRCodesPage({ links, onNotice }: QRCodesPageProps) {
 
   return <section className="panel full-panel feature-page"><PageHeading eyebrow="PARTAGE PHYSIQUE" title="QR codes" description="Le QR encode uniquement l’URL déjà enregistrée. Sa création et son téléchargement ne créent aucun paiement." />
     <div className="qr-controls"><label>Lien<select value={linkId} onChange={(event) => setLinkId(event.target.value)}><option value="">Sélectionner un lien</option>{links.map((row) => <option key={row.id} value={row.id}>{row.description} · {row.identifier}</option>)}</select></label><label>Libellé imprimé, facultatif<input value={label} maxLength={120} onChange={(event) => setLabel(event.target.value)} placeholder="Ce texte reste hors du QR" /></label><label>Taille<select value={size} onChange={(event) => setSize(Number(event.target.value))}><option value={256}>256 px</option><option value={512}>512 px</option><option value={1024}>1024 px · impression</option></select></label></div>
-    {!link ? <EmptyRows title="Choisissez un lien" description="Le QR code sera généré localement à partir de son URL enregistrée." /> : <div className="qr-preview-layout"><div className="qr-preview-card">{png ? <img className="qr-image" src={png} alt={`QR code vers le lien ${link.identifier}`} /> : <div className="qr-loading">Génération du QR code…</div>}{label && <strong className="qr-label">{label}</strong>}<div className="qr-link-caption">{link.description}<small>{link.identifier}</small></div></div><div className="qr-details"><h2>{link.description}</h2><p>{formatMoney(link.display_amount ?? link.amount, link.currency)} · {link.status === "paid" ? "Payé manuellement" : link.status === "cancelled" ? "Annulé" : "En attente"}</p><p className="feature-url">{link.payment_url}</p><div className="feature-actions"><button className="button button-primary" disabled={!png} onClick={() => { const anchor = document.createElement("a"); anchor.href = png; anchor.download = `payflow-${link.identifier}.png`; anchor.click(); }}>Télécharger PNG</button><button className="button button-secondary" disabled={!svg} onClick={() => downloadBlob(new Blob([svg], { type: "image/svg+xml;charset=utf-8" }), `payflow-${link.identifier}.svg`)}>Télécharger SVG</button><a className="button button-secondary" href={link.payment_url} target="_blank" rel="noreferrer">Tester l’URL</a></div>{(link.archived_at || (link.expires_at && new Date(String(link.expires_at).replace(" ", "T") + "Z").getTime() <= Date.now())) && <p className="feature-warning">Ce lien est archivé ou expiré localement. Le QR ouvre toujours l’URL externe et ne la désactive pas.</p>}</div></div>}
+    {!link ? <EmptyRows title="Choisissez un lien" description="Le QR code sera généré localement à partir de son URL enregistrée." /> : <div className="qr-preview-layout"><div className="qr-preview-card">{png ? <img className="qr-image" src={png} alt={`QR code vers le lien ${link.identifier}`} /> : <div className="qr-loading">Génération du QR code…</div>}{label && <strong className="qr-label">{label}</strong>}<div className="qr-link-caption">{link.description}<small>{link.identifier}</small></div></div><div className="qr-details"><h2>{link.description}</h2><p>{formatMoney(link.display_amount ?? link.amount, link.currency)} · {link.status === "paid" ? "Payé manuellement" : link.status === "cancelled" ? "Annulé" : "En attente"}</p><p className="feature-url">{link.payment_url}</p><div className="feature-actions"><button className="button button-primary" disabled={!png} onClick={() => { const anchor = document.createElement("a"); anchor.href = png; anchor.download = `payflow-${link.identifier}.png`; anchor.click(); }}>Télécharger PNG</button><button className="button button-secondary" disabled={!svg} onClick={() => downloadBlob(new Blob([svg], { type: "image/svg+xml;charset=utf-8" }), `payflow-${link.identifier}.svg`)}>Télécharger SVG</button><a className="button button-secondary" href={link.payment_url} target="_blank" rel="noreferrer">Tester l’URL</a></div>{(link.archived_at || isLinkExpiredLocally({ expires_at: link.expires_at })) && <p className="feature-warning">Ce lien est archivé ou expiré localement. Le QR ouvre toujours l’URL externe et ne la désactive pas.</p>}</div></div>}
   </section>;
 }
 
@@ -615,7 +778,7 @@ export function ExportsPage({ onNotice }: { onNotice: (message: string, isError?
   </section>;
 }
 
-export function BackupsPage({ onNotice, onRefresh, onRestoreComplete }: { onNotice: (message: string, isError?: boolean) => void; onRefresh: () => Promise<void>; onRestoreComplete?: () => void }) {
+export function BackupsPage({ onNotice, onRefresh, onRestoreComplete, backupRevision = 0 }: { onNotice: (message: string, isError?: boolean) => void; onRefresh: () => Promise<void>; onRestoreComplete?: () => void; backupRevision?: number }) {
   const [backups, setBackups] = useState<BackupMetadata[]>([]);
   const [verified, setVerified] = useState<BackupDocument | null>(null);
   const [verification, setVerification] = useState<{ valid: boolean; checksum: string; schemaVersion: number; generatedAt: string; counts: Record<string, number> } | null>(null);
@@ -625,6 +788,8 @@ export function BackupsPage({ onNotice, onRefresh, onRestoreComplete }: { onNoti
   const [busy, setBusy] = useState(false);
   const [refresh, setRefresh] = useState(0);
   const [databasePath, setDatabasePath] = useState("./database.sqlite");
+  const [dialog, setDialog] = useState<ActiveDialog | null>(null);
+  const [dialogBusy, setDialogBusy] = useState(false);
   const pythonCommand = `python3 backup_snapshot.py --db ${shellQuote(databasePath)} --output-dir ./backups --retain 7`;
   const cCommand = `cc -O2 -Wall -Wextra -o backup_verify backup_verify.c -lsqlite3 && ./backup_verify ${shellQuote(databasePath)}`;
   const latestAutomatic = backups.find((backup) => backup.source === "automatic-daily") || null;
@@ -636,7 +801,7 @@ export function BackupsPage({ onNotice, onRefresh, onRestoreComplete }: { onNoti
       .catch((error: unknown) => { if (!cancelled) onNotice(error instanceof Error ? error.message : "Impossible de charger les copies enregistrées.", true); })
       .finally(() => { if (!cancelled) setLoadingHistory(false); });
     return () => { cancelled = true; };
-  }, [refresh]);
+  }, [refresh, backupRevision]);
 
   async function createBackup() {
     setBusy(true);
@@ -705,51 +870,69 @@ export function BackupsPage({ onNotice, onRefresh, onRestoreComplete }: { onNoti
     catch { onNotice("Copie impossible. Sélectionnez la commande affichée pour la copier.", true); }
   }
 
-  async function restore() {
+  function restore() {
     if (!verified || !verification?.valid) return;
-    if (!window.confirm(`Importer la copie du ${formatDate(verification.generatedAt)} et remplacer les données actuelles de ce compte ? PayFlow créera une copie de sécurité avant.`)) return;
-    setBusy(true);
-    try {
-      const result = await api.restoreBackup(verified);
-      setVerified(null); setVerification(null); setVerifiedFileName(""); setRefresh((value) => value + 1);
-      try { await onRefresh(); }
-      catch {
-        setFileFeedback("Import terminé. Rechargez la page pour afficher les données restaurées.");
-        onNotice("Import terminé, mais l’actualisation a échoué. Rechargez la page pour afficher les données.", true);
-        return;
-      }
-      const total = Object.values(result.counts).reduce((sum, count) => sum + count, 0);
-      setFileFeedback(`Import terminé : ${total} élément(s) restauré(s).`);
-      onNotice(`Import terminé. ${total} élément(s) restauré(s).`);
-      onRestoreComplete?.();
-    } catch (error) { onNotice(error instanceof Error ? error.message : "Restauration refusée; les données courantes sont conservées.", true); }
-    finally { setBusy(false); }
+    setDialog({
+      eyebrow: "RESTAURATION DE SAUVEGARDE",
+      title: "Remplacer les données actuelles ?",
+      description: `Importer la copie du ${formatDate(verification.generatedAt, { dateStyle: "long", timeStyle: "short" })} et remplacer les données actuelles de ce compte ? PayFlow créera automatiquement une copie de sécurité avant l’opération.`,
+      confirmLabel: "Importer et restaurer",
+      onConfirm: async () => {
+        setDialogBusy(true);
+        setBusy(true);
+        try {
+          const result = await api.restoreBackup(verified);
+          setDialog(null);
+          setVerified(null); setVerification(null); setVerifiedFileName(""); setRefresh((value) => value + 1);
+          try { await onRefresh(); }
+          catch {
+            setFileFeedback("Import terminé. Rechargez la page pour afficher les données restaurées.");
+            onNotice("Import terminé, mais l’actualisation a échoué. Rechargez la page pour afficher les données.", true);
+            return;
+          }
+          const total = Object.values(result.counts).reduce((sum, count) => sum + count, 0);
+          setFileFeedback(`Import terminé : ${total} élément(s) restauré(s).`);
+          onNotice(`Import terminé. ${total} élément(s) restauré(s).`);
+          onRestoreComplete?.();
+        } catch (error) { onNotice(error instanceof Error ? error.message : "Restauration refusée; les données courantes sont conservées.", true); }
+        finally { setDialogBusy(false); setBusy(false); }
+      },
+    });
   }
 
-  async function restoreLatestAutomatic() {
+  function restoreLatestAutomatic() {
     if (!latestAutomatic) return;
-    if (!window.confirm(`Restaurer la sauvegarde automatique du ${formatDate(latestAutomatic.created_at)} ? Les données actuelles seront remplacées après création d’une copie de sécurité.`)) return;
-    setBusy(true);
-    try {
-      const result = await api.restoreLatestAutomaticBackup();
-      setRefresh((value) => value + 1);
-      const total = Object.values(result.counts).reduce((sum, count) => sum + count, 0);
-      try {
-        await onRefresh();
-        onNotice(`Sauvegarde automatique restaurée. ${total} élément(s) récupéré(s).`);
-      } catch {
-        onNotice("Sauvegarde automatique restaurée. Rechargez la page pour afficher les données.", true);
-      }
-      onRestoreComplete?.();
-    } catch (error) { onNotice(error instanceof Error ? error.message : "Restauration automatique impossible.", true); }
-    finally { setBusy(false); }
+    setDialog({
+      eyebrow: "SAUVEGARDE AUTOMATIQUE",
+      title: "Restaurer la dernière sauvegarde automatique ?",
+      description: `Restaurer la sauvegarde automatique du ${formatDate(latestAutomatic.created_at, { dateStyle: "long", timeStyle: "short" })} ? Les données actuelles seront remplacées après création d’une copie de sécurité.`,
+      confirmLabel: "Restaurer maintenant",
+      onConfirm: async () => {
+        setDialogBusy(true);
+        setBusy(true);
+        try {
+          const result = await api.restoreLatestAutomaticBackup();
+          setDialog(null);
+          setRefresh((value) => value + 1);
+          const total = Object.values(result.counts).reduce((sum, count) => sum + count, 0);
+          try {
+            await onRefresh();
+            onNotice(`Sauvegarde automatique restaurée. ${total} élément(s) récupéré(s).`);
+          } catch {
+            onNotice("Sauvegarde automatique restaurée. Rechargez la page pour afficher les données.", true);
+          }
+          onRestoreComplete?.();
+        } catch (error) { onNotice(error instanceof Error ? error.message : "Restauration automatique impossible.", true); }
+        finally { setDialogBusy(false); setBusy(false); }
+      },
+    });
   }
 
   return <section className="panel full-panel feature-page backup-page"><PageHeading eyebrow="VOS DONNÉES" title="Sauvegardes" description="Téléchargez une copie pour garder vos données en sécurité, ou restaurez une copie précédente." />
     <section className="backup-hero">
       <div className="backup-hero-icon"><Icon name="database" size={24} /></div>
       <div className="backup-hero-copy"><h2>Garder une copie de vos données</h2><p>Vos changements restent enregistrés dans PayFlow. Téléchargez aussi un fichier pour pouvoir récupérer vos données si vous changez d’appareil.</p></div>
-      <button className="button button-primary" onClick={createBackup} disabled={busy}><Icon name="download" size={17} />{busy ? "Préparation de la copie…" : "Télécharger une sauvegarde"}</button>
+      <button className="button button-primary" onClick={createBackup} disabled={busy}><Icon name="download" size={17} />{busy ? "Préparation de la copie…" : "Créer une sauvegarde"}</button>
     </section>
     <section className="backup-howto" aria-label="Comment sauvegarder et restaurer">
       <article><span>1</span><div><strong>Créer une copie</strong><small>Cliquez sur « Télécharger une sauvegarde ». PayFlow vérifie les données et prépare un fichier JSON.</small></div></article>
@@ -783,6 +966,7 @@ export function BackupsPage({ onNotice, onRefresh, onRestoreComplete }: { onNoti
         <small className="feature-muted">Téléchargez le script avant d’utiliser sa commande. Les copies Python et les sauvegardes PayFlow ne sont pas chiffrées.</small>
       </section>
     </details>
+    {dialog && <ActionDialogModal {...dialog} busy={dialogBusy} onCancel={() => setDialog(null)} />}
   </section>;
 }
 
@@ -857,13 +1041,15 @@ export function RemindersPage({ search, onNotice }: { search: string; onNotice: 
   const [expirationTo, setExpirationTo] = useState("");
   const [refresh, setRefresh] = useState(0);
   const [busy, setBusy] = useState(false);
+  const [dialog, setDialog] = useState<ActiveDialog | null>(null);
+  const [dialogBusy, setDialogBusy] = useState(false);
   const visibleLinks = useMemo(() => {
     const normalized = search.trim().toLowerCase();
     const min = minimumAmount ? Number(minimumAmount) : null;
     const max = maximumAmount ? Number(maximumAmount) : null;
     return eligible.filter((link) => {
       const amount = Number(link.display_amount ?? link.amount);
-      const date = String(link.created_at).includes("T") ? new Date(link.created_at) : new Date(`${String(link.created_at).replace(" ", "T")}Z`);
+      const date = parseAppDate(link.created_at) || new Date();
       const age = Math.floor((Date.now() - date.getTime()) / 86400000);
       const expiryDate = link.expires_at ? String(link.expires_at).slice(0, 10) : "";
       const matchesSearch = !normalized || `${link.identifier} ${link.description} ${link.customer_name} ${link.customer_email} ${link.phone_number}`.toLowerCase().includes(normalized);
@@ -893,21 +1079,58 @@ export function RemindersPage({ search, onNotice }: { search: string; onNotice: 
     if (selected && selectedTemplate) setMessage(reminderText(selectedTemplate.text, selected));
   }, [linkId, templateId, eligible]);
 
-  async function save(status: "prepared" | "sent") {
-    if (!selected || !message.trim()) { onNotice("Choisissez un lien et rédigez un message.", true); return; }
-    if (status === "sent" && !window.confirm("Confirmez-vous avoir envoyé ce message vous-même? PayFlow ne transmet aucun message.")) return;
+  async function persistReminder(paymentLinkId: number, text: string, status: "prepared" | "sent") {
     setBusy(true);
     try {
-      await api.createReminder({ paymentLinkId: selected.id, message: message.trim(), channel, status });
-      setRefresh((value) => value + 1); onNotice(status === "sent" ? "Relance marquée comme envoyée manuellement." : "Texte préparé et enregistré. Aucun message n’a été envoyé.");
+      await api.createReminder({ paymentLinkId, message: text, channel, status });
+      setRefresh((value) => value + 1);
+      onNotice(status === "sent" ? "Relance marquée comme envoyée manuellement." : "Texte préparé et enregistré. Aucun message n’a été envoyé.");
     } catch (error) { onNotice(error instanceof Error ? error.message : "Enregistrement de la relance impossible.", true); }
     finally { setBusy(false); }
   }
 
-  async function markSent(item: Reminder) {
-    if (!window.confirm("Confirmez-vous avoir envoyé ce rappel vous-même?")) return;
-    try { await api.updateReminder(item.id, { status: "sent" }); setRefresh((value) => value + 1); onNotice("Relance marquée comme envoyée manuellement."); }
-    catch (error) { onNotice(error instanceof Error ? error.message : "Mise à jour impossible.", true); }
+  function save(status: "prepared" | "sent") {
+    if (!selected || !message.trim()) { onNotice("Choisissez un lien et rédigez un message.", true); return; }
+    if (status === "prepared") {
+      void persistReminder(selected.id, message.trim(), "prepared");
+      return;
+    }
+    const targetId = selected.id;
+    const text = message.trim();
+    setDialog({
+      eyebrow: "RELANCE MANUELLE",
+      title: "Confirmer l’envoi du message",
+      description: "Confirmez-vous avoir envoyé ce message vous-même ? PayFlow n’expédie aucun message automatiquement.",
+      confirmLabel: "Oui, j’ai envoyé ce message",
+      onConfirm: async () => {
+        setDialogBusy(true);
+        try {
+          await persistReminder(targetId, text, "sent");
+          setDialog(null);
+        } finally {
+          setDialogBusy(false);
+        }
+      },
+    });
+  }
+
+  function markSent(item: Reminder) {
+    setDialog({
+      eyebrow: "RELANCE MANUELLE",
+      title: "Marquer cette relance comme envoyée",
+      description: "Confirmez-vous avoir envoyé ce rappel vous-même ?",
+      confirmLabel: "Confirmer l’envoi",
+      onConfirm: async () => {
+        setDialogBusy(true);
+        try {
+          await api.updateReminder(item.id, { status: "sent" });
+          setDialog(null);
+          setRefresh((value) => value + 1);
+          onNotice("Relance marquée comme envoyée manuellement.");
+        } catch (error) { onNotice(error instanceof Error ? error.message : "Mise à jour impossible.", true); }
+        finally { setDialogBusy(false); }
+      },
+    });
   }
 
   async function copy(value: string, label: string) {
@@ -933,11 +1156,12 @@ export function RemindersPage({ search, onNotice }: { search: string; onNotice: 
         <label className="reminder-control">Canal<select value={channel} onChange={(event) => setChannel(event.target.value)}><option>WhatsApp</option><option>SMS</option><option>E-mail</option><option>Autre</option></select></label>
         <label className="reminder-control">Message<textarea value={message} onChange={(event) => setMessage(event.target.value)} maxLength={4000} rows={7} disabled={!selected} placeholder="Choisissez un lien pour préparer un message personnalisé." /></label>
         <div className="reminder-editor-footer"><small>{message.length}/4 000 caractères · les champs entre accolades sont déjà remplacés par les informations du lien.</small><div className="feature-reminder-actions">{selected && <><button className="button button-primary" disabled={busy || !message.trim()} onClick={() => copy(message, "Message")}>Copier le message</button>{channel === "WhatsApp" && <a className="button button-secondary" href={`https://wa.me/?text=${encodeURIComponent(message)}`} target="_blank" rel="noreferrer">Ouvrir WhatsApp</a>}<button className="button button-secondary" onClick={() => copy(selected.payment_url, "Lien")}>Copier le lien seul</button><button className="button button-secondary" disabled={busy || !message.trim()} onClick={() => save("prepared")}>Enregistrer pour plus tard</button><button className="button button-secondary" disabled={busy || !message.trim()} onClick={() => save("sent")}>J’ai envoyé ce message</button></>}</div></div>
-        {selected?.expires_at && new Date(String(selected.expires_at).replace(" ", "T") + "Z").getTime() <= Date.now() && <p className="feature-warning">Ce lien a dépassé sa date dans PayFlow. Vérifiez qu’il fonctionne encore avant de le partager.</p>}
+        {selected && isLinkExpiredLocally({ expires_at: selected.expires_at }) && <p className="feature-warning">Ce lien a dépassé sa date dans PayFlow. Vérifiez qu’il fonctionne encore avant de le partager.</p>}
       </section>
     </> : <EmptyRows title="Aucun lien à relancer" description="Les liens encore en attente apparaîtront ici. Les liens payés, annulés ou archivés ne sont pas proposés." />}
     <details className="reminder-history"><summary>Historique des messages · {history.length}</summary>
       {history.length ? <div className="table-scroll"><table><thead><tr><th>DATE</th><th>RÉFÉRENCE</th><th>CANAL</th><th>STATUT</th><th>MESSAGE</th><th>ACTION</th></tr></thead><tbody>{history.map((item) => <tr key={item.id}><td>{formatDate(item.sent_at || item.created_at, { dateStyle: "medium", timeStyle: "short" })}</td><td>{item.identifier || `Lien #${item.payment_link_id}`}</td><td>{item.channel || "—"}</td><td><span className={`feature-status ${item.status === "sent" ? "confirmed" : "pending"}`}>{item.status === "sent" ? "Envoyée" : "Préparée"}</span></td><td><details><summary>Voir le texte</summary><pre className="reminder-message">{item.message}</pre></details></td><td>{item.status === "prepared" && <button onClick={() => markSent(item)}>J’ai envoyé ce message</button>}</td></tr>)}</tbody></table></div> : <p className="feature-muted">Les messages enregistrés apparaîtront ici.</p>}
     </details>
+    {dialog && <ActionDialogModal {...dialog} busy={dialogBusy} onCancel={() => setDialog(null)} />}
   </section>;
 }

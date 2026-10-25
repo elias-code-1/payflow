@@ -31,5 +31,41 @@ export function PrivacySection() {
 }
 
 export function PlatformsSection() {
-  return <section className="landing-section"><div className="landing-container"><div className="landing-section-heading"><span className="landing-kicker">WEB, WINDOWS, ANDROID</span><h2>Utilisez PayFlow sur votre environnement.</h2></div><div className="landing-platform-grid"><article><span>WEB</span><h3>Application web</h3><p>Le backend et SQLite s’exécutent localement. La landing page est un site séparé.</p></article><article><span>EXE</span><h3>Windows desktop</h3><p>Le package Electron embarque le dashboard et le backend local.</p></article><article><span>APK</span><h3>Android</h3><p>Une app Capacitor nécessite la couche de stockage mobile et les outils Android pour être compilée.</p></article></div></div></section>;
+  return (
+    <section className="landing-section">
+      <div className="landing-container">
+        <div className="landing-section-heading">
+          <span className="landing-kicker">WEB · WINDOWS · LINUX · ANDROID · IOS</span>
+          <h2>Utilisez PayFlow sur votre environnement.</h2>
+          <p>Choisissez la version adaptée à votre poste ou votre téléphone et suivez le tutoriel correspondant.</p>
+        </div>
+        <div className="landing-platform-grid landing-platform-grid-four">
+          <article>
+            <span>WEB</span>
+            <h3>Application web</h3>
+            <p>Le backend Express et SQLite s’exécutent localement ou sur votre propre serveur HTTPS.</p>
+            <a className="landing-text-link" href="/dashboard.html">Ouvrir dans le navigateur →</a>
+          </article>
+          <article>
+            <span>WINDOWS</span>
+            <h3>Bureau Windows (.exe)</h3>
+            <p>Installateur NSIS ou version portable autonome avec serveur et base SQLite embarqués.</p>
+            <a className="landing-text-link" href="#telechargements">Voir les formats .exe ↓</a>
+          </article>
+          <article>
+            <span>LINUX & BSD</span>
+            <h3>Bureau Linux (10 formats)</h3>
+            <p>AppImage, .deb, .rpm, .snap, .flatpak, .pacman, Alpine .apk, FreeBSD, .tar.* et .zip/.7z.</p>
+            <a className="landing-text-link" href="#tutoriels-installation">Lire les tutoriels Linux ↓</a>
+          </article>
+          <article>
+            <span>MOBILE</span>
+            <h3>Android (.apk) & iOS (.ipa)</h3>
+            <p>Applications mobiles Capacitor connectées à votre instance PayFlow sécurisée.</p>
+            <a className="landing-text-link" href="#telechargements">Télécharger sur mobile ↓</a>
+          </article>
+        </div>
+      </div>
+    </section>
+  );
 }

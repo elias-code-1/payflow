@@ -8,8 +8,11 @@ export function HeroSection() {
           <span className="landing-pill"><i /> OPEN SOURCE · LOCAL-FIRST</span>
           <h1>Encaissez en ligne.<br /><span>Gardez le contrôle.</span></h1>
           <p>PayFlow est un outil gratuit pour créer et partager des liens de paiement PayGateGlobal. Vos clés et vos données restent sur votre appareil.</p>
-          <div className="landing-actions"><a className="landing-button" href="/dashboard.html">Créer mon espace <span>→</span></a><a className="landing-button landing-button-outline" href="#comment-ca-marche">Découvrir le fonctionnement</a></div>
-          <div className="landing-trust"><span>✓ Pas d’abonnement PayFlow</span><span>✓ SQLite local</span><span>✓ Votre clé API</span></div>
+          <div className="landing-actions">
+            <a className="landing-button" href="/dashboard.html">Créer mon espace <span>→</span></a>
+            <a className="landing-button landing-button-outline" href="#telechargements">Télécharger l’application <span>↓</span></a>
+          </div>
+          <div className="landing-trust"><span>✓ Pas d’abonnement PayFlow</span><span>✓ SQLite local</span><span>✓ Windows · Linux · Android · iOS</span></div>
         </div>
         <div className="landing-product-card" aria-label="Aperçu du tableau de bord PayFlow">
           <div className="mockup-top"><span className="mockup-dots">● ● ●</span><span>payflow.local / dashboard</span><span className="mockup-status">● Local</span></div>
