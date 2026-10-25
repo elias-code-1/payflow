@@ -25,7 +25,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
 
       - name: Set up Java
         uses: actions/setup-java@v4
@@ -40,7 +39,7 @@ jobs:
         run: sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci || npm install
 
       - name: Build Android APK
         run: |
@@ -85,11 +84,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
 
       - name: Install dependencies and iOS platform
         run: |
-          npm ci
+          npm ci || npm install
           npm install --no-save --package-lock=false @capacitor/ios@7.6.9
 
       - name: Build iOS project

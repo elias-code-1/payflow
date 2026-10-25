@@ -1,6 +1,6 @@
 import type { CapacitorConfig } from "@capacitor/cli";
 
-const baseUrl = (process.env.CAPACITOR_SERVER_URL || "http://10.0.2.2:3001").replace(/\/+$/, "");
+const baseUrl = (process.env.CAPACITOR_SERVER_URL || "http://10.0.2.2:3000").replace(/\/+$/, "");
 const serverUrl = `${baseUrl}/dashboard.html`;
 
 const config: CapacitorConfig = {

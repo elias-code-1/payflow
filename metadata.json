@@ -1,0 +1,5 @@
+{
+  "name": "PayFlow",
+  "description": "Outil open source et local-first pour créer et gérer des liens de paiement PayGateGlobal.",
+  "requestFramePermissions": []
+}

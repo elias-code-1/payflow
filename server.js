@@ -7,7 +7,7 @@ initDatabase()
     startDailyBackupScheduler();
     const app = require('./server/app');
     app.listen(PORT, HOST, () => {
-      console.log(`Serveur lancé sur http://localhost:${PORT}`);
+      console.log(`Serveur lancé sur http://${HOST}:${PORT}`);
     });
   })
   .catch((error) => {

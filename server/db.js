@@ -1,31 +1,79 @@
-const sqlite3 = require('sqlite3').verbose();
+let db;
+let useNativeSqlite3 = false;
 const { DB_PATH } = require('./config');
 
-const db = new sqlite3.Database(DB_PATH, (err) => {
-  if (err) {
-    console.error('Erreur SQLite:', err.message);
-  } else {
+try {
+  const { DatabaseSync } = require('node:sqlite');
+  try {
+    db = new DatabaseSync(DB_PATH);
     console.log('Base SQLite connectée:', DB_PATH);
+  } catch (err) {
+    console.warn('[PayFlow] Base SQLite fichier indisponible, utilisation en mémoire:', err.message);
+    db = new DatabaseSync(':memory:');
   }
-});
+} catch {
+  useNativeSqlite3 = true;
+  const sqlite3 = require('sqlite3').verbose();
+  db = new sqlite3.Database(DB_PATH, (err) => {
+    if (err) console.error('Erreur SQLite:', err.message);
+    else console.log('Base SQLite connectée:', DB_PATH);
+  });
+}
 
 let queryQueue = Promise.resolve();
 
+function normalizeParams(params = []) {
+  return (Array.isArray(params) ? params : [params]).map((value) => {
+    if (value === undefined) return null;
+    if (typeof value === 'boolean') return value ? 1 : 0;
+    return value;
+  });
+}
+
+function normalizeError(err) {
+  if (err && typeof err === 'object' && String(err.message || '').includes('constraint failed')) {
+    err.code = 'SQLITE_CONSTRAINT';
+  }
+  return err;
+}
+
 function runRaw(sql, params = []) {
-  return new Promise((resolve, reject) => {
-    db.run(sql, params, function (err) {
-      if (err) reject(err);
-      else resolve({ id: this.lastID, changes: this.changes });
+  if (useNativeSqlite3) {
+    return new Promise((resolve, reject) => {
+      db.run(sql, params, function (err) {
+        if (err) reject(normalizeError(err));
+        else resolve({ id: this.lastID, changes: this.changes });
+      });
     });
+  }
+  return new Promise((resolve, reject) => {
+    try {
+      const bound = normalizeParams(params);
+      const result = db.prepare(sql).run(...bound);
+      resolve({ id: Number(result.lastInsertRowid || 0), changes: Number(result.changes || 0) });
+    } catch (err) {
+      reject(normalizeError(err));
+    }
   });
 }
 
 function getRaw(sql, params = []) {
-  return new Promise((resolve, reject) => {
-    db.all(sql, params, (err, rows) => {
-      if (err) reject(err);
-      else resolve(rows);
+  if (useNativeSqlite3) {
+    return new Promise((resolve, reject) => {
+      db.all(sql, params, (err, rows) => {
+        if (err) reject(normalizeError(err));
+        else resolve(rows);
+      });
     });
+  }
+  return new Promise((resolve, reject) => {
+    try {
+      const bound = normalizeParams(params);
+      const rows = db.prepare(sql).all(...bound);
+      resolve(rows.map((row) => ({ ...row })));
+    } catch (err) {
+      reject(normalizeError(err));
+    }
   });
 }
 

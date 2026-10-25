@@ -1,5 +1,5 @@
 {
-  "name": "essaie-javascript",
+  "name": "payflow",
   "version": "1.0.0",
   "description": "Espace marchand PayFlow",
   "license": "ISC",
@@ -9,10 +9,10 @@
   "main": "desktop/main.cjs",
   "scripts": {
     "start": "node server.js",
-    "dev": "concurrently -k \"PORT=3001 node server.js\" \"vite\"",
+    "dev": "npm run build && node server.js",
     "build": "vite build",
-    "package:win": "npm run build && electron-builder --win nsis",
-    "package:linux": "npm run build && electron-builder --linux AppImage",
+    "package:win": "npm run build && electron-builder --win nsis portable --publish never",
+    "package:linux": "npm run build && electron-builder --linux AppImage deb rpm tar.gz --publish never",
     "cap:add:android": "cap add android",
     "cap:sync": "npm run build && cap sync android",
     "package:apk": "npm run cap:sync && cd android && ./gradlew assembleDebug"
@@ -32,7 +32,6 @@
   },
   "devDependencies": {
     "@capacitor/cli": "^7.4.3",
-    "concurrently": "^10.0.6",
     "electron": "^38.0.0",
     "electron-builder": "^26.0.12",
     "vite": "^8.3.5"
@@ -48,9 +47,10 @@
       "desktop/**/*",
       "server/**/*",
       "tools/**/*",
-      "build/payflow-icon.png",
+      "public/payflow-icon.png",
       "server.js",
       "dist/**/*",
+      "!dist/assets/aistudio/**/*",
       "package.json",
       "node_modules/**/*"
     ],
@@ -58,9 +58,10 @@
       "output": "release"
     },
     "win": {
-      "icon": "build/payflow-icon.ico",
+      "icon": "public/payflow-icon.png",
       "target": [
-        "nsis"
+        "nsis",
+        "portable"
       ]
     },
     "nsis": {
@@ -68,12 +69,15 @@
       "allowToChangeInstallationDirectory": true
     },
     "linux": {
-      "icon": "build/linux-icons",
+      "executableName": "payflow",
+      "icon": "public/payflow-icon.png",
       "category": "Office",
       "maintainer": "PayFlow Contributors <noreply@users.noreply.github.com>",
       "syncDesktopName": true,
       "target": [
-        "AppImage"
+        "AppImage",
+        "deb",
+        "rpm"
       ]
     },
     "flatpak": {

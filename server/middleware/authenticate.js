@@ -58,13 +58,18 @@ function authenticate(req, res, next) {
   return next();
 }
 
+function cookieAttributes(res) {
+  const forwardedProto = String(res.req?.headers?.['x-forwarded-proto'] || '').split(',')[0].trim();
+  const isHttps = Boolean(res.req?.secure || forwardedProto === 'https');
+  return isHttps ? 'SameSite=None; Secure; Partitioned' : 'SameSite=Lax';
+}
+
 function setSessionCookie(res, userId) {
-  const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
-  res.setHeader('Set-Cookie', `${COOKIE_NAME}=${encodeURIComponent(createSession(userId))}; HttpOnly; SameSite=Strict; Path=/api; Max-Age=${SESSION_LIFETIME_SECONDS}${secure}`);
+  res.setHeader('Set-Cookie', `${COOKIE_NAME}=${encodeURIComponent(createSession(userId))}; HttpOnly; ${cookieAttributes(res)}; Path=/api; Max-Age=${SESSION_LIFETIME_SECONDS}`);
 }
 
 function clearSessionCookie(res) {
-  res.setHeader('Set-Cookie', `${COOKIE_NAME}=; HttpOnly; SameSite=Strict; Path=/api; Max-Age=0`);
+  res.setHeader('Set-Cookie', `${COOKIE_NAME}=; HttpOnly; ${cookieAttributes(res)}; Path=/api; Max-Age=0`);
 }
 
 module.exports = { authenticate, setSessionCookie, clearSessionCookie };

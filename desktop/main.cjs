@@ -34,10 +34,15 @@ async function startLocalApi() {
 
 async function createWindow() {
   const port = await startLocalApi();
+  const iconPath = [
+    path.join(__dirname, '../public/payflow-icon.png'),
+    path.join(__dirname, '../build/payflow-icon.png'),
+    path.join(__dirname, '../dist/payflow-icon.png'),
+  ].find((candidate) => fs.existsSync(candidate));
   const window = new BrowserWindow({
     width: 1440,
     height: 960,
-    icon: path.join(__dirname, '../build/payflow-icon.png'),
+    ...(iconPath ? { icon: iconPath } : {}),
     minWidth: 920,
     minHeight: 650,
     show: false,

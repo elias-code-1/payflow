@@ -31,7 +31,7 @@ Le wrapper mobile charge le dashboard serveur défini par `CAPACITOR_SERVER_URL`
 
 Les workflows se trouvent dans `.github/workflows/` :
 
-- `build-desktop.yml` produit l’installateur Windows NSIS, l’EXE portable et les formats Linux pris en charge par electron-builder : AppImage, DEB, RPM, Snap, Flatpak, Pacman, APK Alpine, FreeBSD, IPS Solaris (`p5p`) et archives 7z, ZIP, tar.xz, tar.lz, tar.gz et tar.bz2.
+- `build-desktop.yml` produit l’installateur Windows NSIS, l’EXE portable et les formats Linux/BSD pris en charge sur Ubuntu par electron-builder : AppImage, DEB, RPM, Snap, Flatpak, Pacman, APK Alpine, FreeBSD et archives 7z, ZIP, tar.xz, tar.lz, tar.gz et tar.bz2.
 - `build-mobile.yml` produit un APK Android debug sur les push, pull requests et lancements manuels. Le job iOS ne s’exécute qu’au lancement manuel du workflow et exporte un IPA signé pour App Store Connect.
 
 Les fichiers sont téléchargeables dans la section **Artifacts** de chaque exécution et sont conservés 14 jours. Ces workflows ne publient pas automatiquement sur une boutique ni dans une GitHub Release.
