@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Générateur de Lien de Paiement & Conversion - PayGateGlobal</title>
+    <!-- Icônes Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="ambient-background">
+
+    <!-- HEADER / NAVBAR -->
+    <header class="site-header">
+        <div class="container">
+            <!-- Logo -->
+            <a class="brand-link" href="#">
+                <div class="brand-mark">
+                    <i class="fas fa-bolt" aria-hidden="true"></i>
+                </div>
+                <div class="brand-copy">
+                    <span class="brand-name">PayLink<span>Pro</span></span>
+                    <span class="brand-caption">PayGateGlobal Powered</span>
+                </div>
+            </a>
+
+            <!-- Navigation Links (Desktop) -->
+            <nav>
+                <a href="#features">Fonctionnalités</a>
+                <a href="#generator">Générateur</a>
+                <a href="#simulator">Simulateur</a>
+                <a href="#developers">API Code</a>
+                <a href="#pricing">Tarifs</a>
+                <a href="#faq">FAQ</a>
+            </nav>
+
+            <!-- CTA Actions -->
+            <div class="header-actions">
+                <a href="#generator">
+                    Connexion
+                </a>
+                <a href="#generator">
+                    Créer un lien
+                </a>
+            </div>
+
+            <!-- Mobile menu button -->
+            <button class="menu-toggle" id="mobile-menu-toggle" type="button" aria-expanded="false" aria-controls="mobile-menu" aria-label="Ouvrir le menu">
+                <i class="fas fa-bars" aria-hidden="true"></i>
+            </button>
+        </div>
+        <!-- Mobile menu -->
+        <div id="mobile-menu">
+            <a href="#features" class="mobile-menu-link">Fonctionnalités</a>
+            <a href="#generator" class="mobile-menu-link">Générateur</a>
+            <a href="#simulator" class="mobile-menu-link">Simulateur</a>
+            <a href="#developers" class="mobile-menu-link">API Code</a>
+            <a href="#pricing" class="mobile-menu-link">Tarifs</a>
+            <a href="#faq" class="mobile-menu-link">FAQ</a>
+            <div class="mobile-menu-actions">
+                <a href="#generator" class="mobile-menu-link">Connexion</a>
+                <a href="#generator" class="mobile-menu-link">Créer un lien</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- HERO SECTION -->
+    <section class="hero-section" id="hero">
+        <div class="container">
+            <div class="hero-layout">
+                
+                <!-- Hero Left Column -->
+                <div class="hero-content">
+                    <div class="status-pill">
+                        <span class="status-dot"></span>
+                        <span>Multi-Opérateurs Mobile Money & Conversion de Devises</span>
+                    </div>
+
+                    <h1 class="hero-title">
+                        Générez vos liens de paiement <span class="text-gradient">PayGateGlobal</span> en un clic.
+                    </h1>
+
+                    <p class="hero-description">
+                        Encaissez facilement vos clients par <strong>T-Money, Flooz, Orange, MTN & Wave</strong> avec conversion automatique de devises (EUR, USD, XOF). Solution conçue pour marchands, e-commerçants et freelancers.
+                    </p>
+
+                    <!-- Hero CTA Buttons -->
+                    <div class="hero-actions">
+                        <a href="#generator" class="button button-primary">
+                            <span>Générer un lien</span>
+                            <i class="fas fa-arrow-right" aria-hidden="true"></i>
+                        </a>
+                        <a href="#simulator" class="button button-secondary">
+                            <i class="fas fa-calculator" aria-hidden="true"></i>
+                            <span>Simulateur de conversion</span>
+                        </a>
+                    </div>
+
+                    <!-- Trust Indicators -->
+                    <div class="trust-indicators">
+                        <span class="trust-item"><i class="fas fa-shield-alt" aria-hidden="true"></i> Conforme API PayGateGlobal</span>
+                        <span class="trust-item"><i class="fas fa-bolt" aria-hidden="true"></i> Conversion automatique</span>
+                        <span class="trust-item"><i class="fas fa-check-circle" aria-hidden="true"></i> Instantané</span>
+                    </div>
+                </div>
+
+                <!-- Hero Right Column: Payment Link Form Interface -->
+                <div id="generator">
+                    <div class="glass-card">
+                        <div class="card-decoration"></div>
+                        
+                        <div class="generator-header">
+                            <div>
+                                <h2>Créer un Lien de Paiement</h2>
+                                <p>Formulaire d'encaissement PayGateGlobal</p>
+                            </div>
+                            <span class="api-status">
+                                <i class="fas fa-signal" aria-hidden="true"></i> API Active
+                            </span>
+                        </div>
+
+                        <!-- Form HTML Structure -->
+                        <form id="payment-form" class="payment-form">
+                            <div class="form-field">
+                                <label for="payment-title">Libellé / Produit</label>
+                                <input id="payment-title" type="text" name="title" placeholder="Ex: Prestation de service, Produit A" required>
+                            </div>
+
+                            <div class="amount-row">
+                                <div class="form-field">
+                                    <label for="payment-amount">Montant</label>
+                                    <input id="payment-amount" type="number" name="amount" placeholder="10000" min="1" step="any" required>
+                                </div>
+                                <div class="form-field">
+                                    <label for="payment-currency">Devise</label>
+                                    <select id="payment-currency" name="currency">
+                                        <option value="XOF">XOF (FCFA)</option>
+                                        <option value="EUR">EUR (€)</option>
+                                        <option value="USD">USD ($)</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- Mobile Money Operators Grid -->
+                            <div class="form-field">
+                                <label>Moyens de paiement acceptés</label>
+                                <div class="operator-grid">
+                                    <button class="operator-card operator-card-active" type="button" aria-pressed="true" data-operator="T-Money">
+                                        <i class="fas fa-mobile-alt" aria-hidden="true"></i>
+                                        <span>T-Money</span>
+                                    </button>
+                                    <button class="operator-card" type="button" aria-pressed="false" data-operator="Flooz">
+                                        <i class="fas fa-wallet" aria-hidden="true"></i>
+                                        <span>Flooz</span>
+                                    </button>
+                                    <button class="operator-card" type="button" aria-pressed="false" data-operator="Orange">
+                                        <i class="fas fa-globe" aria-hidden="true"></i>
+                                        <span>Orange</span>
+                                    </button>
+                                    <button class="operator-card" type="button" aria-pressed="false" data-operator="Wave / MTN">
+                                        <i class="fas fa-water" aria-hidden="true"></i>
+                                        <span>Wave / MTN</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Submit Button -->
+                            <div class="form-submit">
+                                <button type="submit">
+                                    <i class="fas fa-link" aria-hidden="true"></i>
+                                    <span>Générer le Lien de Paiement</span>
+                                </button>
+                            </div>
+                        </form>
+
+                        <div id="payment-result" class="payment-result" hidden aria-live="polite">
+                            <div class="payment-result-copy">
+                                <strong>Aperçu du lien créé</strong>
+                                <code id="payment-link"></code>
+                                <span>Aperçu local uniquement ; aucune transaction réelle n’est lancée.</span>
+                            </div>
+                            <button id="copy-payment-link" class="copy-button" type="button" aria-label="Copier le lien de démonstration">
+                                <i class="fas fa-copy" aria-hidden="true"></i>
+                                <span>Copier</span>
+                            </button>
+                        </div>
+
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <!-- FEATURES SECTION -->
+    <section id="features">
+        <div class="container">
+            <div class="section-heading container-small">
+                <span>Une infrastructure performante</span>
+                <h2>Tout ce dont vous avez besoin pour collecter vos paiements</h2>
+                <p>Connectez vos encaissements à l'API PayGateGlobal et simplifiez votre gestion financière.</p>
+            </div>
+
+            <div class="feature-grid">
+                <!-- Feature 1 -->
+                <div class="feature-card">
+                    <div class="feature-icon icon-blue">
+                        <i class="fas fa-link" aria-hidden="true"></i>
+                    </div>
+                    <h3>Liens Instantanés</h3>
+                    <p>
+                        Créez des liens de paiement réutilisables ou à usage unique. Partagez-les facilement sur WhatsApp, Facebook, email ou SMS.
+                    </p>
+                </div>
+
+                <!-- Feature 2 -->
+                <div class="feature-card">
+                    <div class="feature-icon icon-green">
+                        <i class="fas fa-coins" aria-hidden="true"></i>
+                    </div>
+                    <h3>Conversion Automatique</h3>
+                    <p>
+                        Proposez un prix en Euros ou Dollars à vos clients internationaux, le système calcule et convertit le montant exact en XOF pour PayGateGlobal.
+                    </p>
+                </div>
+
+                <!-- Feature 3 -->
+                <div class="feature-card">
+                    <div class="feature-icon icon-purple">
+                        <i class="fas fa-mobile-button" aria-hidden="true"></i>
+                    </div>
+                    <h3>Multi-Opérateurs</h3>
+                    <p>
+                        Compatibilité complète avec T-Money, Flooz, Orange Money, MTN et Wave. Couverture optimale pour vos clients.
+                    </p>
+                </div>
+
+                <!-- Feature 4 -->
+                <div class="feature-card">
+                    <div class="feature-icon icon-amber">
+                        <i class="fas fa-satellite-dish" aria-hidden="true"></i>
+                    </div>
+                    <h3>Webhooks & Notifications</h3>
+                    <p>
+                        Recevez une notification instantanée à chaque transaction réussie pour valider vos commandes automatiquement.
+                    </p>
+                </div>
+
+                <!-- Feature 5 -->
+                <div class="feature-card">
+                    <div class="feature-icon icon-blue">
+                        <i class="fas fa-chart-line" aria-hidden="true"></i>
+                    </div>
+                    <h3>Suivi des Encaissements</h3>
+                    <p>
+                        Gardez une vue d'ensemble sur votre chiffre d'affaires, filtrez par période et exportez vos données en quelques clics.
+                    </p>
+                </div>
+
+                <!-- Feature 6 -->
+                <div class="feature-card">
+                    <div class="feature-icon icon-rose">
+                        <i class="fas fa-shield-halved" aria-hidden="true"></i>
+                    </div>
+                    <h3>Sécurité Renforcée</h3>
+                    <p>
+                        Toutes les communications s'effectuent de façon sécurisée avec l'API PayGateGlobal et un protocole HTTPS/SSL.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- SIMULATOR SECTION -->
+    <section id="simulator">
+        <div class="container">
+            <div class="simulator-layout">
+                
+                <div class="simulator-copy">
+                    <span>Calculateur de Transparence</span>
+                    <h2>Simulez votre conversion de devise</h2>
+                    <p>
+                        Visualisez la conversion exacte de vos ventes en devises (EUR/USD) vers le Franc CFA (XOF) avant le paiement PayGateGlobal.
+                    </p>
+                    <div class="simulator-benefits">
+                        <div class="simulator-benefit">
+                            <i class="fas fa-check-circle" aria-hidden="true"></i>
+                            <span>Taux de conversion fixe ou en temps réel</span>
+                        </div>
+                        <div class="simulator-benefit">
+                            <i class="fas fa-check-circle" aria-hidden="true"></i>
+                            <span>Calcul des commissions nettes</span>
+                        </div>
+                        <div class="simulator-benefit">
+                            <i class="fas fa-check-circle" aria-hidden="true"></i>
+                            <span>Transfert direct vers T-Money & Flooz</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="simulator-panel">
+                    <div class="glass-card">
+                            <form id="simulator-form" class="simulator-form">
+                            <div class="form-field">
+                                <label for="simulator-currency">Devise d'Origine</label>
+                                <select id="simulator-currency">
+                                    <option value="EUR">Euro (€ - EUR)</option>
+                                    <option value="USD">Dollar ($ - USD)</option>
+                                    <option value="XOF">Franc CFA (XOF)</option>
+                                </select>
+                            </div>
+                            <div class="form-field">
+                                <label for="simulator-amount">Montant du Produit</label>
+                                <input id="simulator-amount" type="number" value="100" min="0" step="any">
+                            </div>
+                        </form>
+
+                        <!-- Simulation Static Preview Box -->
+                        <div class="conversion-preview">
+                            <div class="conversion-row">
+                                <span>Montant Saisi :</span>
+                                <span id="conversion-input">100 €</span>
+                            </div>
+                            <div class="conversion-row">
+                                <span>Taux de Conversion Indicatif :</span>
+                                <span id="conversion-rate">1 EUR = 655,95 XOF</span>
+                            </div>
+                            <div class="conversion-row">
+                                <span>Montant Converti (XOF Brut) :</span>
+                                <span id="conversion-gross">65 595 XOF</span>
+                            </div>
+                            <div class="conversion-row conversion-fees">
+                                <span>Frais API PayGate (Estimé ~2.5%) :</span>
+                                <span id="conversion-fees">- 1 640 XOF</span>
+                            </div>
+                            <div class="conversion-row conversion-net">
+                                <span>Net Reçu (Portefeuille) :</span>
+                                <span id="conversion-net">63 955 XOF</span>
+                            </div>
+                        </div>
+                        <p class="calculator-note">Taux fixes de démonstration ; ils peuvent être remplacés par une source de taux en temps réel.</p>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <!-- DEVELOPER CODE SNIPPET SECTION -->
+    <section id="developers">
+        <div class="container">
+            <div class="developer-layout">
+                
+                <div class="developer-copy">
+                    <span>Intégration API PayGate</span>
+                    <h2>Exemple d'Intégration Backend</h2>
+                    <p>
+                        Structure d'exemple de la requête HTTP vers l'API de PayGateGlobal pour effectuer un paiement automatique par Mobile Money.
+                    </p>
+                    <div class="api-badges">
+                        <span>Endpoint: /api/v1/pay</span>
+                        <span>Méthode: POST</span>
+                    </div>
+                </div>
+
+                <!-- Static Code Block -->
+                <div class="developer-code-column">
+                    <div class="code-panel">
+                        <div class="code-heading">
+                            <span>Exemple de requête (cURL / JSON)</span>
+                            <button id="copy-api-example" class="copy-button" type="button">
+                                <i class="fas fa-copy" aria-hidden="true"></i>
+                                <span>Copier</span>
+                            </button>
+                            <span><i class="fas fa-code" aria-hidden="true"></i> API V1</span>
+                        </div>
+                        <pre><code>curl -X POST https://paygateglobal.com/api/v1/pay \
+  -H "Content-Type: application/json" \
+  -d '{
+    "auth_token": "VOTRE_PAYGATE_TOKEN",
+    "phone_number": "90000000",
+    "amount": 15000,
+    "description": "Paiement Commande #1024",
+    "identifier": "REF_PAY_982317",
+    "network": "TMONEY"
+  }'</code></pre>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <!-- PRICING SECTION -->
+    <section id="pricing">
+        <div class="container">
+            <div class="section-heading container-small">
+                <span>Tarification Flexible</span>
+                <h2>Une offre adaptée à votre volume de vente</h2>
+                <p>Choix transparent des forfaits sans frais cachés.</p>
+            </div>
+
+            <div class="pricing-grid">
+                <!-- Starter -->
+                <div class="pricing-card">
+                    <div>
+                        <h3>Débutant / Freelance</h3>
+                        <p>Pour lancer vos encaissements ponctuels.</p>
+                        <div class="pricing-price">
+                            <span>0 FCFA</span>
+                            <span> / mois</span>
+                        </div>
+                        <ul>
+                            <li><i class="fas fa-check" aria-hidden="true"></i> Liens de paiement illimités</li>
+                            <li><i class="fas fa-check" aria-hidden="true"></i> Calculateur de devises inclus</li>
+                            <li><i class="fas fa-check" aria-hidden="true"></i> T-Money & Flooz supportés</li>
+                            <li><i class="fas fa-check" aria-hidden="true"></i> Support standard</li>
+                        </ul>
+                    </div>
+                    <a href="#generator">Commencer</a>
+                </div>
+
+                <!-- Business -->
+                <div class="pricing-card pricing-card-popular">
+                    <span class="popular-badge">Populaire</span>
+                    <div>
+                        <h3>Business Pro</h3>
+                        <p>Pour e-commerçants & marchands réguliers.</p>
+                        <div class="pricing-price">
+                            <span>9 900 FCFA</span>
+                            <span> / mois</span>
+                        </div>
+                        <ul>
+                            <li><i class="fas fa-check" aria-hidden="true"></i> Toutes les fonctions Starter</li>
+                            <li><i class="fas fa-check" aria-hidden="true"></i> Webhooks & API intégrée</li>
+                            <li><i class="fas fa-check" aria-hidden="true"></i> Redirection personnalisée</li>
+                            <li><i class="fas fa-check" aria-hidden="true"></i> Support WhatsApp prioritaire</li>
+                        </ul>
+                    </div>
+                    <a href="#generator">Sélectionner</a>
+                </div>
+
+                <!-- Enterprise -->
+                <div class="pricing-card pricing-card-enterprise">
+                    <div>
+                        <h3>Sur Mesure</h3>
+                        <p>Pour structures à très haut volume.</p>
+                        <div class="pricing-price">
+                            <span>Sur Devis</span>
+                        </div>
+                        <ul>
+                            <li><i class="fas fa-check" aria-hidden="true"></i> Intégration sur-mesure</li>
+                            <li><i class="fas fa-check" aria-hidden="true"></i> Accompagnement technique dédié</li>
+                            <li><i class="fas fa-check" aria-hidden="true"></i> Disponibilité de service garantie</li>
+                        </ul>
+                    </div>
+                    <a href="#generator">Nous Contacter</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FAQ SECTION (Pure CSS Details/Summary) -->
+    <section id="faq">
+        <div class="container container-narrow">
+            <div class="faq-intro">
+                <h2>Foire Aux Questions</h2>
+                <p>Questions fréquentes sur la création de liens et l'API PayGateGlobal.</p>
+            </div>
+
+            <div class="faq-list">
+                <details class="faq-item">
+                    <summary>
+                        <span>Comment fonctionne la conversion de devises ?</span>
+                        <span class="faq-chevron">
+                            <i class="fas fa-chevron-down" aria-hidden="true"></i>
+                        </span>
+                    </summary>
+                    <p>
+                        Le système calcule la conversion du montant saisi en Euro (€) ou Dollar ($) vers le Franc CFA (XOF) selon le taux appliqué, puis transmet la valeur exacte en FCFA à l'API PayGateGlobal.
+                    </p>
+                </details>
+
+                <details class="faq-item">
+                    <summary>
+                        <span>Quels réseaux Mobile Money sont pris en charge ?</span>
+                        <span class="faq-chevron">
+                            <i class="fas fa-chevron-down" aria-hidden="true"></i>
+                        </span>
+                    </summary>
+                    <p>
+                        L'intégration PayGateGlobal prend en charge principalement T-Money (Togo), Flooz (Moov Togo/Afrique de l'Ouest), ainsi que les services partenaires selon votre configuration marchand.
+                    </p>
+                </details>
+
+                <details class="faq-item">
+                    <summary>
+                        <span>Où les fonds encaissés sont-ils reçus ?</span>
+                        <span class="faq-chevron">
+                            <i class="fas fa-chevron-down" aria-hidden="true"></i>
+                        </span>
+                    </summary>
+                    <p>
+                        Les règlements sont directement traités et crédités sur votre compte marchand lié à l'API de PayGateGlobal.
+                    </p>
+                </details>
+            </div>
+        </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer class="site-footer">
+        <div class="container footer-grid">
+            <div class="footer-brand">
+                <div class="footer-logo">
+                    <div class="footer-brand-mark">
+                        <i class="fas fa-bolt" aria-hidden="true"></i>
+                    </div>
+                    <span>PayLinkPro</span>
+                </div>
+                <p>
+                    Plateforme de création de liens de paiement automatisés et conversion de devises basée sur l'API PayGateGlobal.
+                </p>
+            </div>
+
+            <div>
+                <h4>Navigation</h4>
+                <ul>
+                    <li><a href="#features">Fonctionnalités</a></li>
+                    <li><a href="#generator">Générateur</a></li>
+                    <li><a href="#simulator">Simulateur</a></li>
+                    <li><a href="#pricing">Tarification</a></li>
+                </ul>
+            </div>
+
+            <div>
+                <h4>API PayGate</h4>
+                <ul>
+                    <li><a href="#developers">Documentation API</a></li>
+                    <li><a href="#developers">Exemple cURL</a></li>
+                    <li><a href="#faq">FAQ Intégration</a></li>
+                </ul>
+            </div>
+
+            <div>
+                <h4>Contact</h4>
+                <p><i class="fas fa-envelope" aria-hidden="true"></i> contact@exemple.com</p>
+                <p><i class="fas fa-phone" aria-hidden="true"></i> +228 90 00 00 00</p>
+                <div>
+                    <a href="#"><i class="fab fa-whatsapp" aria-hidden="true"></i></a>
+                    <a href="#"><i class="fab fa-facebook" aria-hidden="true"></i></a>
+                    <a href="#"><i class="fab fa-linkedin" aria-hidden="true"></i></a>
+                </div>
+            </div>
+        </div>
+
+        <div class="container footer-bottom">
+            <p>&copy; PayLink Pro. Tous droits réservés.</p>
+            <p>Compatible API PayGateGlobal</p>
+        </div>
+    </footer>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <script src="app.js"></script>
+</body>
+</html>

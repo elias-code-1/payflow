@@ -1,0 +1,12 @@
+node_modules/
+dist/
+dist-mobile/
+release/
+android/
+.env
+.env.*
+!.env.example
+database.sqlite
+database.sqlite-shm
+database.sqlite-wal
+*.log

@@ -1,0 +1,76 @@
+{
+  "name": "essaie-javascript",
+  "version": "1.0.0",
+  "description": "Espace marchand PayFlow",
+  "license": "ISC",
+  "author": "",
+  "type": "commonjs",
+  "main": "desktop/main.cjs",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "concurrently -k \"PORT=3001 node server.js\" \"vite\"",
+    "build": "vite build",
+    "package:win": "npm run build && electron-builder --win nsis",
+    "package:linux": "npm run build && electron-builder --linux AppImage",
+    "cap:add:android": "cap add android",
+    "cap:sync": "npm run build && cap sync android",
+    "package:apk": "npm run cap:sync && cd android && ./gradlew assembleDebug"
+  },
+  "dependencies": {
+    "@capacitor/android": "^7.4.3",
+    "@capacitor/core": "^7.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^18.0.9",
+    "express": "^4.21.2",
+    "gsap": "^3.15.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "sqlite3": "^6.0.1",
+    "three": "^0.186.1"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.6",
+    "@capacitor/cli": "^7.4.3",
+    "electron": "^38.0.0",
+    "electron-builder": "^26.0.12",
+    "vite": "^8.3.5"
+  },
+  "build": {
+    "appId": "org.payflow.local",
+    "productName": "PayFlow",
+    "asar": true,
+    "asarUnpack": [
+      "node_modules/sqlite3/**"
+    ],
+    "files": [
+      "desktop/**/*",
+      "server/**/*",
+      "server.js",
+      "dist/**/*",
+      "package.json",
+      "node_modules/**/*"
+    ],
+    "directories": {
+      "output": "release"
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ]
+    }
+  },
+  "allowScripts": {
+    "electron@38.8.6": true,
+    "electron-winstaller@5.4.0": true,
+    "sqlite3@6.0.1": true
+  }
+}

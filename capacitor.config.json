@@ -1,0 +1,9 @@
+{
+  "appId": "org.payflow.local",
+  "appName": "PayFlow Dashboard",
+  "webDir": "dist",
+  "server": {
+    "url": "http://10.0.2.2:3001/dashboard.html",
+    "cleartext": true
+  }
+}
