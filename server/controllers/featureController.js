@@ -2,6 +2,7 @@
 
 const { FeatureModel } = require('../models/FeatureModel');
 const { DataToolsModel } = require('../models/DataToolsModel');
+const { getLatestDailyBackup, saveManualBackupFile } = require('../services/dailyBackup');
 
 function handleError(res, error, fallback) {
   const status = Number(error?.status) || 500;
@@ -209,7 +210,16 @@ const controller = {
   },
 
   async createBackup(req, res) {
-    try { return res.status(201).json(await DataToolsModel.createBackup(req.auth.userId)); }
+    try {
+      const backup = await DataToolsModel.createBackup(req.auth.userId);
+      try {
+        backup.fileName = await saveManualBackupFile(req.auth.userId, backup);
+      } catch (error) {
+        console.error('[backup] Could not write manual backup file:', error instanceof Error ? error.message : error);
+        backup.fileName = null;
+      }
+      return res.status(201).json(backup);
+    }
     catch (error) { return handleError(res, error, 'Impossible de créer une sauvegarde vérifiée.'); }
   },
 
@@ -228,6 +238,15 @@ const controller = {
       if (req.body?.confirmed !== true) return res.status(400).json({ message: 'Confirmez explicitement le remplacement des données de ce compte.' });
       return res.json(await DataToolsModel.restoreBackup(req.auth.userId, req.body?.document));
     } catch (error) { return handleError(res, error, 'La restauration a échoué; les données courantes sont conservées.'); }
+  },
+
+  async restoreLatestAutomaticBackup(req, res) {
+    try {
+      if (req.body?.confirmed !== true) return res.status(400).json({ message: 'Confirmez explicitement le remplacement des données de ce compte.' });
+      const document = await getLatestDailyBackup(req.auth.userId);
+      if (!document) return res.status(404).json({ message: 'Aucune sauvegarde automatique valide n’est disponible.' });
+      return res.json(await DataToolsModel.restoreBackup(req.auth.userId, document));
+    } catch (error) { return handleError(res, error, 'La restauration automatique a échoué; les données courantes sont conservées.'); }
   },
 };
 

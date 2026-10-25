@@ -3,6 +3,7 @@ const { promisify } = require('util');
 const UserModel = require('../models/UserModel');
 const PaymentModel = require('../models/PaymentModel');
 const { setSessionCookie, clearSessionCookie } = require('../middleware/authenticate');
+const { createDailyBackupForAccount } = require('../services/dailyBackup');
 
 const scrypt = promisify(scryptCallback);
 const PASSWORD_COST = 64;
@@ -47,6 +48,7 @@ async function register(req, res) {
     }
     const user = await UserModel.findById(result.id);
     setSessionCookie(res, user.id);
+    void createDailyBackupForAccount(user.id);
     return res.status(201).json({ user: safeUser(user) });
   } catch (error) {
     console.error('Account registration error:', error);

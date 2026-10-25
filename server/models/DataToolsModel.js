@@ -1,7 +1,7 @@
 'use strict';
 
 const crypto = require('crypto');
-const { getQuery, runTransaction } = require('../db');
+const { getQuery, runQuery, runTransaction } = require('../db');
 const { FeatureModel, fail, validId } = require('./FeatureModel');
 
 const BACKUP_FORMAT = 'payflow-account-backup';
@@ -184,10 +184,22 @@ const DataToolsModel = {
       const document = makeDocument(data);
       const serialized = JSON.stringify(document);
       const sizeBytes = Buffer.byteLength(serialized, 'utf8');
+      if (sizeBytes > 20 * 1024 * 1024) fail('La sauvegarde dépasse la taille maximale de 20 Mo; aucune copie n’a été créée.');
       const result = await tx.run(`INSERT INTO backup_snapshots (user_id, checksum, schema_version, size_bytes, source, payload_json)
         VALUES (?, ?, ?, ?, ?, ?)`, [userId, document.checksum, BACKUP_VERSION, sizeBytes, source, serialized]);
       return { id: result.id, checksum: document.checksum, schemaVersion: BACKUP_VERSION, sizeBytes, createdAt: document.generatedAt, document };
     });
+  },
+
+  async pruneAutomaticBackups(userId, retain = 30) {
+    const keep = Math.max(1, Math.min(365, Number(retain) || 30));
+    return runQuery(`DELETE FROM backup_snapshots
+      WHERE user_id = ? AND source = 'automatic-daily'
+      AND id NOT IN (
+        SELECT id FROM backup_snapshots
+        WHERE user_id = ? AND source = 'automatic-daily'
+        ORDER BY id DESC LIMIT ?
+      )`, [userId, userId, keep]);
   },
 
   async listBackups(userId) {

@@ -25,6 +25,8 @@ npm run package:apk
 
 L’APK est un build optionnel basé sur Capacitor. Il n’est pas un produit autonome sans environnement Android bien configuré.
 
+Le wrapper mobile charge le dashboard serveur défini par `CAPACITOR_SERVER_URL`. Pour une build connectée, définir cette variable (URL Render sans `/dashboard.html`) avant `npx cap sync android`; sans variable il utilise `http://10.0.2.2:3001`, réservé à l’émulateur Android local. Les sauvegardes quotidiennes d’une app mobile connectée à Render sont stockées côté serveur sur le disque persistant, pas directement sur le téléphone.
+
 ## GitHub Actions
 
 Les workflows se trouvent dans `.github/workflows/` :
@@ -47,7 +49,7 @@ La signature iOS nécessite le certificat et le profil de provisioning Apple app
 
 ### Configuration mobile actuelle
 
-`capacitor.config.json` pointe encore vers `http://10.0.2.2:3001/dashboard.html`, une adresse de développement destinée à l’émulateur Android. Le workflow peut compiler et signer l’IPA, mais cette adresse ne convient pas à un iPhone réel. Il faudra configurer une adresse de serveur adaptée avant de distribuer l’application iOS.
+`capacitor.config.ts` lit `CAPACITOR_SERVER_URL` pour Android et iOS. Sans variable, il utilise l’URL de développement `http://10.0.2.2:3001/dashboard.html`, réservée à l’émulateur Android. Définir la variable GitHub Actions avec l’URL HTTPS Render avant de distribuer un APK ou un IPA.
 
 ## Limitations
 

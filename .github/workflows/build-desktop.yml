@@ -57,7 +57,7 @@ jobs:
       - name: Install Linux packaging tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y flatpak flatpak-builder fuse3 rpm
+          sudo apt-get install -y flatpak flatpak-builder fuse3 lzip rpm
           flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
 
       - name: Install dependencies

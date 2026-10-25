@@ -68,6 +68,7 @@ router.get('/exports/:type', featureController.exportData);
 
 router.get('/backups', featureController.listBackups);
 router.post('/backups', featureController.createBackup);
+router.post('/backups/restore-latest-automatic', featureController.restoreLatestAutomaticBackup);
 router.get('/backups/:id', featureController.downloadBackup);
 router.post('/backups/verify', featureController.verifyBackup);
 router.post('/backups/restore', featureController.restoreBackup);

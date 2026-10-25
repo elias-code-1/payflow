@@ -222,7 +222,7 @@ export default function DashboardApp() {
     case "catalog": content = <CatalogPage search={query} onRefresh={refreshData} onNotice={reportNotice} onCreateLink={(item) => openPayment({ description: item.name, amount: item.amount, currency: item.currency, catalogItemId: item.id })} />; break;
     case "qrCodes": content = <QRCodesPage links={links} onNotice={reportNotice} />; break;
     case "exports": content = <ExportsPage onNotice={reportNotice} />; break;
-    case "backups": content = <BackupsPage onRefresh={refreshData} onNotice={reportNotice} />; break;
+    case "backups": content = <BackupsPage onRefresh={refreshData} onNotice={reportNotice} onRestoreComplete={() => setPage("overview")} />; break;
     case "analytics": content = <AdvancedAnalyticsPage onNotice={reportNotice} />; break;
     case "reminders": content = <RemindersPage search={query} onNotice={reportNotice} />; break;
     case "settings": content = <SettingsPage configured={configured} saving={savingSettings} onSave={saveSettings} />; break;

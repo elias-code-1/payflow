@@ -25,6 +25,7 @@ Lire d’abord le [README racine](../README.md), qui décrit l’état courant v
 - [release_notes.md](./release_notes.md) — résumé des versions
 - [support.md](./support.md) — support et don
 - [operations.md](./operations.md) — maintenance
+- [deploiement-render.md](./deploiement-render.md) — mise en ligne, disque SQLite et sauvegardes quotidiennes
 - [guide des outils SQLite](../tools/README.md) — sauvegarde Python et vérification C
 
 Ces documents décrivent l’implémentation actuelle et les limites encore connues; le code reste la source de vérité. Avant tout changement, vérifier les routes dans `../server/routes/api.js`, le schéma dans `../server/db.js` et les écrans dans `../src/components/`.

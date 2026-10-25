@@ -169,12 +169,15 @@ export const api = {
   previewExport: (type: string, filters: QueryInput = {}) => request<{ type: string; count: number; generatedAt: string; filters: QueryInput }>(`/api/exports/preview${queryString({ ...filters, type })}`),
   downloadExport: (type: string, format: "csv" | "json", filters: QueryInput = {}) => download(`/api/exports/${encodeURIComponent(type)}${queryString({ ...filters, format })}`),
   getBackups: () => request<BackupMetadata[]>("/api/backups"),
-  createBackup: () => request<{ id: number; checksum: string; schemaVersion: number; sizeBytes: number; createdAt: string; document: BackupDocument }>("/api/backups", { method: "POST" }),
+  createBackup: () => request<{ id: number; checksum: string; schemaVersion: number; sizeBytes: number; createdAt: string; fileName: string | null; document: BackupDocument }>("/api/backups", { method: "POST" }),
   getBackup: (id: number) => request<BackupDocument>(`/api/backups/${id}`),
   verifyBackup: (document: BackupDocument) => request<{ valid: boolean; checksum: string; schemaVersion: number; generatedAt: string; counts: Record<string, number> }>("/api/backups/verify", {
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ document }),
   }),
   restoreBackup: (document: BackupDocument) => request<{ restored: boolean; safetyBackupCreated: boolean; counts: Record<string, number> }>("/api/backups/restore", {
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ document, confirmed: true }),
+  }),
+  restoreLatestAutomaticBackup: () => request<{ restored: boolean; safetyBackupCreated: boolean; counts: Record<string, number> }>("/api/backups/restore-latest-automatic", {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ confirmed: true }),
   }),
 };

@@ -2610,6 +2610,13 @@ footer {
 .backup-howto article > div { min-width: 0; display: grid; gap: 4px; }
 .backup-howto strong { color: var(--dashboard-ink); font-size: 11px; }
 .backup-howto small { color: var(--dashboard-muted); font-size: 10px; line-height: 1.5; }
+.backup-auto-restore { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; align-items: center; gap: 10px 13px; padding: 15px; border: 1px solid #dcefe7; border-radius: 11px; background: #f7fbf8; }
+.backup-auto-restore h2 { margin: 0; color: var(--dashboard-ink); font-size: 13px; }
+.backup-auto-restore p { margin: 4px 0; color: var(--dashboard-muted); font-size: 10px; line-height: 1.5; }
+.backup-auto-restore small { color: #26715d; font-size: 10px; font-weight: 650; }
+.backup-auto-restore > .button { min-height: 40px; }
+.backup-file-feedback { padding: 10px 12px; border: 1px solid #cde9dc; border-radius: 8px; background: #f2fbf6; color: #236b54; font-size: 11px; line-height: 1.5; }
+.backup-file-feedback.is-error { border-color: #f1d1cd; background: #fff7f5; color: #a03d31; }
 .backup-main-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 13px; }
 .backup-option { min-width: 0; display: grid; grid-template-columns: 34px minmax(0, 1fr); align-content: start; align-items: start; gap: 8px 11px; padding: 16px; border: 1px solid var(--dashboard-border); border-radius: 12px; background: #fff; }
 .backup-option-icon { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 9px; background: #f1f6f4; color: #59756d; }
@@ -2709,6 +2716,8 @@ footer {
   .backup-hero-icon { width: 40px; height: 40px; }
   .backup-hero > .button { grid-column: 1 / -1; width: 100%; }
   .backup-howto { grid-template-columns: 1fr; }
+  .backup-auto-restore { grid-template-columns: 32px minmax(0, 1fr); }
+  .backup-auto-restore > .button { grid-column: 1 / -1; width: 100%; }
   .backup-main-grid { grid-template-columns: 1fr; }
   .backup-history-list article { align-items: flex-start; flex-direction: column; }
   .backup-history-list .feature-actions { width: 100%; }

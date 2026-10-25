@@ -1,12 +1,28 @@
 const { app, BrowserWindow, shell } = require('electron');
+const fs = require('fs');
 const path = require('path');
 
 let apiServer;
+
+function uniqueDownloadPath(fileName) {
+  const downloadDirectory = app.getPath('downloads');
+  fs.mkdirSync(downloadDirectory, { recursive: true });
+  const safeName = path.basename(fileName);
+  const parsed = path.parse(safeName);
+  let destination = path.join(downloadDirectory, safeName);
+  let index = 1;
+  while (fs.existsSync(destination)) {
+    destination = path.join(downloadDirectory, `${parsed.name} (${index})${parsed.ext}`);
+    index += 1;
+  }
+  return destination;
+}
 
 async function startLocalApi() {
   process.env.PAYFLOW_DB_PATH = path.join(app.getPath('userData'), 'payflow.sqlite');
   const { initDatabase } = require('../server/db');
   await initDatabase();
+  require('../server/services/dailyBackup').startDailyBackupScheduler();
   const expressApp = require('../server/app');
   apiServer = expressApp.listen(0, '127.0.0.1');
   await new Promise((resolve, reject) => {
@@ -30,6 +46,10 @@ async function createWindow() {
       nodeIntegration: false,
       sandbox: true,
     },
+  });
+
+  window.webContents.session.on('will-download', (_event, item) => {
+    item.setSavePath(uniqueDownloadPath(item.getFilename()));
   });
 
   window.webContents.setWindowOpenHandler(({ url }) => {

@@ -15,6 +15,8 @@ jobs:
   android:
     name: Android debug APK
     runs-on: ubuntu-latest
+    env:
+      CAPACITOR_SERVER_URL: ${{ vars.CAPACITOR_SERVER_URL }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -62,6 +64,7 @@ jobs:
     runs-on: macos-15
     env:
       IOS_BUNDLE_ID: org.payflow.local
+      CAPACITOR_SERVER_URL: ${{ vars.CAPACITOR_SERVER_URL }}
     steps:
       - name: Check Apple signing secrets
         env:

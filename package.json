@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "description": "Espace marchand PayFlow",
   "license": "ISC",
-  "author": "",
+  "author": "PayFlow Contributors <noreply@users.noreply.github.com>",
+  "desktopName": "PayFlow",
   "type": "commonjs",
   "main": "desktop/main.cjs",
   "scripts": {
@@ -67,7 +68,10 @@
       "allowToChangeInstallationDirectory": true
     },
     "linux": {
-      "icon": "public/payflow-icon.svg",
+      "icon": "build/linux-icons",
+      "category": "Office",
+      "maintainer": "PayFlow Contributors <noreply@users.noreply.github.com>",
+      "syncDesktopName": true,
       "target": [
         "AppImage"
       ]

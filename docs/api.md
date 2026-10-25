@@ -53,6 +53,7 @@ Les routes privées ci-dessous exigent une session authentifiée. Les identifian
 - `GET /api/backups`, `POST /api/backups`, `GET /api/backups/:id`
 - `POST /api/backups/verify` avec `{ "document": ... }`
 - `POST /api/backups/restore` avec `{ "document": ..., "confirmed": true }`
+- `POST /api/backups/restore-latest-automatic` avec `{ "confirmed": true }` — retrouve le dernier fichier quotidien valide du compte connecté et le restaure.
 
 Les sauvegardes et restaurations couvrent les données métier du compte courant, pas une copie brute de toute la base. Le token d’API stocké dans les paramètres n’est pas inclus, mais les URL de paiement dans une sauvegarde peuvent contenir un token fournisseur. Les exports masquent toujours le paramètre `token` et masquent aussi le téléphone par défaut; leurs URL ne sont donc pas directement utilisables. Les fichiers ne sont pas chiffrés.
 

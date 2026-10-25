@@ -32,12 +32,24 @@ function downloadBlob(blob: Blob, filename: string): void {
   const anchor = document.createElement("a");
   anchor.href = url;
   anchor.download = filename;
+  anchor.style.display = "none";
+  document.body.appendChild(anchor);
   anchor.click();
-  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 30000);
 }
 
 function shellQuote(value: string): string {
   return `'${value.replace(/'/g, "'\\''")}'`;
+}
+
+function readFileText(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => typeof reader.result === "string" ? resolve(reader.result) : reject(new Error("Lecture du fichier impossible."));
+    reader.onerror = () => reject(new Error("Lecture du fichier impossible."));
+    reader.readAsText(file);
+  });
 }
 
 const BACKUP_COUNT_LABELS: Record<string, string> = {
@@ -603,17 +615,19 @@ export function ExportsPage({ onNotice }: { onNotice: (message: string, isError?
   </section>;
 }
 
-export function BackupsPage({ onNotice, onRefresh }: { onNotice: (message: string, isError?: boolean) => void; onRefresh: () => Promise<void> }) {
+export function BackupsPage({ onNotice, onRefresh, onRestoreComplete }: { onNotice: (message: string, isError?: boolean) => void; onRefresh: () => Promise<void>; onRestoreComplete?: () => void }) {
   const [backups, setBackups] = useState<BackupMetadata[]>([]);
   const [verified, setVerified] = useState<BackupDocument | null>(null);
   const [verification, setVerification] = useState<{ valid: boolean; checksum: string; schemaVersion: number; generatedAt: string; counts: Record<string, number> } | null>(null);
   const [verifiedFileName, setVerifiedFileName] = useState("");
+  const [fileFeedback, setFileFeedback] = useState("");
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [busy, setBusy] = useState(false);
   const [refresh, setRefresh] = useState(0);
   const [databasePath, setDatabasePath] = useState("./database.sqlite");
   const pythonCommand = `python3 backup_snapshot.py --db ${shellQuote(databasePath)} --output-dir ./backups --retain 7`;
   const cCommand = `cc -O2 -Wall -Wextra -o backup_verify backup_verify.c -lsqlite3 && ./backup_verify ${shellQuote(databasePath)}`;
+  const latestAutomatic = backups.find((backup) => backup.source === "automatic-daily") || null;
 
   useEffect(() => {
     let cancelled = false;
@@ -628,28 +642,46 @@ export function BackupsPage({ onNotice, onRefresh }: { onNotice: (message: strin
     setBusy(true);
     try {
       const result = await api.createBackup();
-      downloadBlob(new Blob([JSON.stringify(result.document, null, 2)], { type: "application/json;charset=utf-8" }), `payflow-sauvegarde-${new Date().toISOString().slice(0, 10)}.json`);
+      downloadBlob(new Blob([JSON.stringify(result.document, null, 2)], { type: "application/json;charset=utf-8" }), `payflow-sauvegarde-${result.id}-${new Date().toISOString().slice(0, 10)}.json`);
       setRefresh((value) => value + 1);
-      onNotice("Votre copie de sécurité a été téléchargée. Gardez le fichier dans un endroit sûr.");
+      const runningLocally = ["localhost", "127.0.0.1"].includes(window.location.hostname);
+      onNotice(result.fileName
+        ? runningLocally
+          ? "Copie enregistrée sur cet ordinateur et dans Téléchargements. Vous pourrez aussi la restaurer depuis PayFlow."
+          : "Copie enregistrée dans PayFlow et téléchargement lancé. Vous pourrez aussi la restaurer depuis l’historique."
+        : "Copie conservée dans l’historique PayFlow et téléchargement lancé, mais l’enregistrement côté application a échoué.", !result.fileName);
     } catch (error) { onNotice(error instanceof Error ? error.message : "Création de sauvegarde impossible.", true); }
     finally { setBusy(false); }
   }
 
   async function verifyDocument(document: BackupDocument, fileName = "Fichier sélectionné") {
     setBusy(true);
+    setFileFeedback("Vérification de la sauvegarde…");
     try {
       const result = await api.verifyBackup(document);
-      setVerified(document); setVerification(result); setVerifiedFileName(fileName); onNotice("Votre fichier est valide et prêt à être restauré.");
-    } catch (error) { setVerified(null); setVerification(null); setVerifiedFileName(""); onNotice("Ce fichier ne ressemble pas à une sauvegarde PayFlow valide. Vos données n’ont pas été modifiées.", true); }
+      setVerified(document); setVerification(result); setVerifiedFileName(fileName);
+      setFileFeedback("Fichier reconnu. Vos données ne changeront qu’après avoir cliqué sur « Importer et restaurer ».");
+      onNotice("Sauvegarde reconnue. Vérifiez son contenu puis cliquez sur « Importer et restaurer ».");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Ce fichier ne ressemble pas à une sauvegarde PayFlow valide.";
+      setVerified(null); setVerification(null); setVerifiedFileName(""); setFileFeedback(`Import impossible : ${message}`); onNotice(`Import impossible : ${message}`, true);
+    }
     finally { setBusy(false); }
   }
 
   async function readFile(file?: File) {
     if (!file) return;
-    setVerifiedFileName(file.name);
-    if (file.size > 20 * 1024 * 1024) { setVerifiedFileName(""); onNotice("Ce fichier est trop volumineux (maximum 20 Mo).", true); return; }
-    try { await verifyDocument(JSON.parse(await file.text()) as BackupDocument, file.name); }
-    catch { setVerified(null); setVerification(null); setVerifiedFileName(""); onNotice("Impossible de lire ce fichier. Choisissez une sauvegarde PayFlow au format JSON.", true); }
+    setVerified(null); setVerification(null); setVerifiedFileName("");
+    if (file.size > 20 * 1024 * 1024) { const message = "Ce fichier est trop volumineux (maximum 20 Mo)."; setFileFeedback(message); onNotice(message, true); return; }
+    setFileFeedback(`Lecture de « ${file.name} »…`);
+    try {
+      const parsed: unknown = JSON.parse(await readFileText(file));
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("Le fichier JSON ne contient pas de sauvegarde PayFlow.");
+      await verifyDocument(parsed as BackupDocument, file.name);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Choisissez une sauvegarde PayFlow au format JSON.";
+      setVerified(null); setVerification(null); setVerifiedFileName(""); setFileFeedback(`Import impossible : ${message}`); onNotice(`Import impossible : ${message}`, true);
+    }
   }
 
   async function verifyStored(id: number) {
@@ -675,18 +707,41 @@ export function BackupsPage({ onNotice, onRefresh }: { onNotice: (message: strin
 
   async function restore() {
     if (!verified || !verification?.valid) return;
-    if (!window.confirm(`Restaurer la copie du ${formatDate(verification.generatedAt)} ? Les données actuelles de cet espace seront remplacées. Une copie de sécurité sera créée automatiquement avant.`)) return;
+    if (!window.confirm(`Importer la copie du ${formatDate(verification.generatedAt)} et remplacer les données actuelles de ce compte ? PayFlow créera une copie de sécurité avant.`)) return;
     setBusy(true);
     try {
       const result = await api.restoreBackup(verified);
       setVerified(null); setVerification(null); setVerifiedFileName(""); setRefresh((value) => value + 1);
       try { await onRefresh(); }
       catch {
-        onNotice("Restauration terminée, mais le dashboard n’a pas pu se rafraîchir. Rechargez la page.", true);
+        setFileFeedback("Import terminé. Rechargez la page pour afficher les données restaurées.");
+        onNotice("Import terminé, mais l’actualisation a échoué. Rechargez la page pour afficher les données.", true);
         return;
       }
-      onNotice(`Restauration terminée. ${Object.values(result.counts).reduce((sum, count) => sum + count, 0)} élément(s) récupéré(s).`);
+      const total = Object.values(result.counts).reduce((sum, count) => sum + count, 0);
+      setFileFeedback(`Import terminé : ${total} élément(s) restauré(s).`);
+      onNotice(`Import terminé. ${total} élément(s) restauré(s).`);
+      onRestoreComplete?.();
     } catch (error) { onNotice(error instanceof Error ? error.message : "Restauration refusée; les données courantes sont conservées.", true); }
+    finally { setBusy(false); }
+  }
+
+  async function restoreLatestAutomatic() {
+    if (!latestAutomatic) return;
+    if (!window.confirm(`Restaurer la sauvegarde automatique du ${formatDate(latestAutomatic.created_at)} ? Les données actuelles seront remplacées après création d’une copie de sécurité.`)) return;
+    setBusy(true);
+    try {
+      const result = await api.restoreLatestAutomaticBackup();
+      setRefresh((value) => value + 1);
+      const total = Object.values(result.counts).reduce((sum, count) => sum + count, 0);
+      try {
+        await onRefresh();
+        onNotice(`Sauvegarde automatique restaurée. ${total} élément(s) récupéré(s).`);
+      } catch {
+        onNotice("Sauvegarde automatique restaurée. Rechargez la page pour afficher les données.", true);
+      }
+      onRestoreComplete?.();
+    } catch (error) { onNotice(error instanceof Error ? error.message : "Restauration automatique impossible.", true); }
     finally { setBusy(false); }
   }
 
@@ -699,21 +754,27 @@ export function BackupsPage({ onNotice, onRefresh }: { onNotice: (message: strin
     <section className="backup-howto" aria-label="Comment sauvegarder et restaurer">
       <article><span>1</span><div><strong>Créer une copie</strong><small>Cliquez sur « Télécharger une sauvegarde ». PayFlow vérifie les données et prépare un fichier JSON.</small></div></article>
       <article><span>2</span><div><strong>Garder le fichier à part</strong><small>Enregistrez-le dans un endroit sûr, idéalement aussi sur un autre appareil ou une clé USB.</small></div></article>
-      <article><span>3</span><div><strong>Récupérer vos données</strong><small>Choisissez le fichier ci-dessous, vérifiez le résumé, puis cliquez sur « Restaurer cette copie ».</small></div></article>
+      <article><span>3</span><div><strong>Récupérer vos données</strong><small>Choisissez le fichier ci-dessous, vérifiez le résumé, puis cliquez sur « Importer et restaurer maintenant ».</small></div></article>
+    </section>
+    <section className="backup-auto-restore">
+      <div className="backup-option-icon"><Icon name="database" size={18} /></div>
+      <div><h2>Sauvegarde automatique quotidienne</h2><p>PayFlow crée une copie au démarrage puis chaque jour pendant que l’application fonctionne. Si elle était fermée, la copie est créée au prochain démarrage. Les 30 dernières sont gardées.</p><small>{latestAutomatic ? `Dernière copie : ${formatDate(latestAutomatic.created_at, { dateStyle: "long", timeStyle: "short" })}` : loadingHistory ? "Recherche de la dernière copie…" : "La première copie sera créée au démarrage du serveur."}</small></div>
+      <button className="button button-secondary" disabled={busy || !latestAutomatic} onClick={restoreLatestAutomatic}>{latestAutomatic ? "Restaurer la dernière copie" : "Aucune copie disponible"}</button>
     </section>
     <div className="backup-main-grid">
-      <section className="backup-option"><div className="backup-option-icon"><Icon name="upload" size={18} /></div><div><h2>Restaurer une sauvegarde</h2><p>Choisissez un fichier PayFlow JSON. Nous le vérifions avant de modifier vos données.</p></div><label className="button button-secondary backup-file-button"><Icon name="upload" size={16} />Choisir un fichier<input type="file" accept="application/json,.json" disabled={busy} onChange={(event) => readFile(event.target.files?.[0])} /></label></section>
+      <section className="backup-option"><div className="backup-option-icon"><Icon name="upload" size={18} /></div><div><h2>Importer une sauvegarde</h2><p>Choisissez un fichier PayFlow JSON (20 Mo maximum). Après vérification, cliquez sur « Importer et restaurer ».</p></div><label className="button button-secondary backup-file-button"><Icon name="upload" size={16} />Choisir mon fichier<input type="file" accept="application/json,.json" disabled={busy} onChange={(event) => { const input = event.currentTarget; const file = input.files?.[0]; input.value = ""; void readFile(file); }} /></label></section>
       <section className="backup-option backup-privacy"><div className="backup-option-icon"><Icon name="shield" size={18} /></div><div><h2>Votre fichier reste privé</h2><p>Il peut contenir des coordonnées et des liens de paiement. Gardez-le dans un endroit sûr et évitez de le partager.</p></div></section>
     </div>
-    {verification && verified && <section className="backup-restore-ready"><div className="backup-ready-title"><span className="backup-ready-check"><Icon name="check" size={17} /></span><div><h2>Copie prête à restaurer</h2><p>{verifiedFileName} · créée le {formatDate(verification.generatedAt, { dateStyle: "long", timeStyle: "short" })}</p></div></div><div className="backup-counts">{Object.entries(verification.counts).map(([key, count]) => <span key={key}>{BACKUP_COUNT_LABELS[key] || key} <strong>{count}</strong></span>)}</div><div className="feature-form-actions"><button className="button button-primary" disabled={busy} onClick={restore}>{busy ? "Restauration…" : "Restaurer cette copie"}</button><button className="button button-secondary" disabled={busy} onClick={() => { setVerified(null); setVerification(null); setVerifiedFileName(""); }}>Annuler</button></div><small>Une copie automatique de vos données actuelles sera créée avant la restauration.</small></section>}
-    <section className="backup-history"><div className="backup-history-heading"><div><h2>Copies enregistrées dans PayFlow</h2><p>Ces copies restent sur cet appareil. Téléchargez-en une pour la conserver ailleurs.</p></div><span className="feature-status">{backups.length} copie(s)</span></div>
-      {loadingHistory ? <div className="backup-loading"><span className="spinner" /> Chargement des copies…</div> : backups.length ? <div className="backup-history-list">{backups.map((backup) => <article key={backup.id}><div><strong>{formatDate(backup.created_at, { dateStyle: "long", timeStyle: "short" })}</strong><small>{backup.source === "before-restore" ? "Copie automatique avant restauration" : "Copie créée depuis PayFlow"}</small></div><div className="feature-actions"><button disabled={busy} onClick={() => verifyStored(backup.id)}>Restaurer</button><button disabled={busy} onClick={() => downloadStored(backup.id)}>Télécharger</button></div></article>)}</div> : <EmptyRows title="Aucune copie enregistrée" description="Votre première copie apparaîtra ici après le téléchargement." />}
+    {fileFeedback && <div className={`backup-file-feedback ${fileFeedback.startsWith("Import impossible") ? "is-error" : ""}`} role={fileFeedback.startsWith("Import impossible") ? "alert" : "status"}>{fileFeedback}</div>}
+    {verification && verified && <section className="backup-restore-ready"><div className="backup-ready-title"><span className="backup-ready-check"><Icon name="check" size={17} /></span><div><h2>Fichier vérifié · prêt à importer</h2><p>{verifiedFileName} · créé le {formatDate(verification.generatedAt, { dateStyle: "long", timeStyle: "short" })}</p></div></div><div className="backup-counts">{Object.entries(verification.counts).map(([key, count]) => <span key={key}>{BACKUP_COUNT_LABELS[key] || key} <strong>{count}</strong></span>)}</div><div className="feature-form-actions"><button className="button button-primary" disabled={busy} onClick={restore}>{busy ? "Importation en cours…" : "Importer et restaurer maintenant"}</button><button className="button button-secondary" disabled={busy} onClick={() => { setVerified(null); setVerification(null); setVerifiedFileName(""); setFileFeedback(""); }}>Annuler</button></div><small>Vos données actuelles seront remplacées. PayFlow crée une copie de sécurité avant l’import.</small></section>}
+    <section className="backup-history"><div className="backup-history-heading"><div><h2>Copies enregistrées dans PayFlow</h2><p>Elles restent sur l’ordinateur ou le serveur qui héberge PayFlow. Téléchargez-en une pour la conserver ailleurs.</p></div><span className="feature-status">{backups.length} copie(s)</span></div>
+      {loadingHistory ? <div className="backup-loading"><span className="spinner" /> Chargement des copies…</div> : backups.length ? <div className="backup-history-list">{backups.map((backup) => <article key={backup.id}><div><strong>{formatDate(backup.created_at, { dateStyle: "long", timeStyle: "short" })}</strong><small>{backup.source === "before-restore" ? "Copie automatique avant restauration" : backup.source === "automatic-daily" ? "Sauvegarde automatique quotidienne" : "Copie créée depuis PayFlow"}</small></div><div className="feature-actions"><button disabled={busy} onClick={() => verifyStored(backup.id)}>Restaurer</button><button disabled={busy} onClick={() => downloadStored(backup.id)}>Télécharger</button></div></article>)}</div> : <EmptyRows title="Aucune copie enregistrée" description="Votre première copie apparaîtra ici après le téléchargement." />}
     </section>
     <p className="backup-privacy-note">Les fichiers ne sont pas chiffrés. Ils contiennent des coordonnées et peuvent inclure un token dans certaines URL de paiement. Conservez-les dans un endroit personnel et sûr.</p>
     <details className="backup-advanced"><summary>Options avancées · outils Python et C</summary>
       <section className="backup-tools" aria-labelledby="backup-tools-title">
         <div className="detail-heading"><div><div className="eyebrow">POUR LES UTILISATEURS AVANCÉS</div><h2 id="backup-tools-title">Outils locaux de sauvegarde SQLite</h2></div></div>
-        <p>Les scripts sont facultatifs et s’exécutent manuellement sur l’appareil qui contient le fichier de base.</p>
+        <p>Les scripts sont facultatifs et ne peuvent agir que sur un fichier SQLite accessible sur l’appareil qui les exécute. Depuis Render, utilisez les copies automatiques et le bouton de restauration ci-dessus : le navigateur ne peut pas ouvrir le disque du serveur.</p>
         <label className="backup-database-path">Emplacement du fichier SQLite<input value={databasePath} onChange={(event) => setDatabasePath(event.target.value)} spellCheck={false} /></label>
         <div className="backup-tool-grid">
           <article className="backup-tool-card"><h3>Créer une copie avec Python</h3><p>Copie cohérente, contrôle de l’intégrité et conservation des sept dernières copies valides.</p><pre><code>{pythonCommand}</code></pre><div className="feature-actions"><button onClick={() => copyCommand(pythonCommand)}>Copier la commande</button><button onClick={() => downloadBlob(new Blob([pythonBackupSource], { type: "text/x-python;charset=utf-8" }), "backup_snapshot.py")}>Télécharger le fichier Python</button></div><details className="backup-source-code"><summary>Afficher le code</summary><pre><code>{pythonBackupSource}</code></pre></details></article>

@@ -31,6 +31,9 @@ Ce README est le point d’entrée pour toute personne ou IA qui reprend le proj
 - Les sources frontend sont maintenant en `.ts` / `.tsx` avec `tsconfig.json`. Le type-check dédié reste à configurer lorsque les dépendances TypeScript et React pourront être installées.
 - `dashboard.html` est seulement l’entrée Vite; le dashboard et ses pages sont rendus par React/TSX.
 - Les utilitaires Python et C facultatifs sont dans `tools/` et leurs sources, commandes et limites apparaissent dans la page Sauvegardes. La page conserve aussi la sauvegarde/restauration JSON par compte.
+- Les sauvegardes quotidiennes sont écrites par compte dans `PAYFLOW_BACKUP_DIR`; l’app desktop les range avec sa base locale et le dashboard peut restaurer la dernière en un clic.
+- `render.yaml` configure un service Node avec SQLite et fichiers sous disque persistant. Lire le [guide Render](docs/deploiement-render.md) avant la mise en ligne; le disque Render implique une seule instance.
+- Le wrapper Capacitor lit `CAPACITOR_SERVER_URL`; définir cette variable GitHub Actions avec l’URL Render pour faire pointer l’APK/IPA vers le serveur hébergé.
 - La page Relances contient 224 modèles en français; le code source et les raccourcis sont dans `src/data/reminderTemplates.ts`.
 - Le logo SVG `public/payflow-icon.svg` sert de favicon et d’icône Linux; ses dérivés PNG/ICO sont dans `build/`.
 - Le dépôt public est [elias-code-1/payflow](https://github.com/elias-code-1/payflow), branche `main`.

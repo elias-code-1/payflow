@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: payflow
+    runtime: node
+    plan: starter
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: PAYFLOW_DB_PATH
+        value: /var/data/payflow.sqlite
+      - key: PAYFLOW_BACKUP_DIR
+        value: /var/data/backups
+      - key: PAYFLOW_AUTO_BACKUPS
+        value: "true"
+      - key: SESSION_SECRET
+        generateValue: true
+    disk:
+      name: payflow-data
+      mountPath: /var/data
+      sizeGB: 1
