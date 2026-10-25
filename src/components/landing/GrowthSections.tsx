@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import { DEFAULT_DOWNLOAD_LINKS, type DownloadLinks } from "../../constants/externalLinks";
 
 export function PricingSection() {
   return <section className="landing-section landing-section-tinted" id="tarifs"><div className="landing-container landing-pricing"><div><span className="landing-kicker">TARIFICATION</span><h2>PayFlow est gratuit.</h2><p>Le logiciel ne facture aucun abonnement. Les frais et conditions de paiement de PayGateGlobal continuent de s’appliquer selon votre contrat.</p></div><div className="pricing-card"><span>PAYFLOW OPEN SOURCE</span><strong>0 <i>FCFA</i></strong><ul><li>✓ Dashboard local</li><li>✓ SQLite sur votre appareil</li><li>✓ Clé API personnelle</li><li>✓ Liens de paiement</li></ul><a className="landing-button" href="/dashboard.html">Créer mon compte</a></div></div></section>;
@@ -23,7 +24,83 @@ export function FaqSection() {
 }
 
 export function DownloadsSection() {
-  return <section className="landing-section" id="telechargements"><div className="landing-container landing-downloads"><div><span className="landing-kicker">APPLICATIONS</span><h2>Construisez le dashboard pour votre appareil.</h2><p>Les paquets ne sont pas encore publiés. Les scripts de build se lancent depuis le dépôt source. Android exige Android Studio/JDK/SDK ; le .exe Windows se construit sous Windows ou avec Wine.</p></div><div className="download-cards"><article><span>⊞</span><div><strong>Windows · .exe</strong><small>Dashboard uniquement</small></div><a href="#build-instructions">Voir la commande</a></article><article><span>▣</span><div><strong>Android · .apk</strong><small>Dashboard uniquement</small></div><a href="#build-instructions">Voir la commande</a></article></div></div></section>;
+  const [links, setLinks] = useState<DownloadLinks>(DEFAULT_DOWNLOAD_LINKS);
+
+  useEffect(() => {
+    let active = true;
+    fetch("/api/downloads")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: Partial<DownloadLinks> | null) => {
+        if (!active || !data) return;
+        setLinks((prev) => ({
+          exeUrl: data.exeUrl || prev.exeUrl,
+          apkUrl: data.apkUrl || prev.apkUrl,
+          linuxUrl: data.linuxUrl || prev.linuxUrl,
+        }));
+      })
+      .catch(() => {
+        /* Mode statique : conserve les variables VITE_* éventuelles */
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const hasDirectDownloads = Boolean(links.exeUrl || links.apkUrl || links.linuxUrl);
+
+  return (
+    <section className="landing-section" id="telechargements">
+      <div className="landing-container landing-downloads">
+        <div>
+          <span className="landing-kicker">APPLICATIONS</span>
+          <h2>{hasDirectDownloads ? "Téléchargez le dashboard pour votre appareil." : "Construisez le dashboard pour votre appareil."}</h2>
+          <p>
+            {hasDirectDownloads
+              ? "Installez directement l’application PayFlow sur Windows, Android ou Linux, ou compilez les paquets vous-même depuis le dépôt source."
+              : "Les paquets ne sont pas encore publiés. Les scripts de build se lancent depuis le dépôt source. Android exige Android Studio/JDK/SDK ; le .exe Windows se construit sous Windows ou avec Wine."}
+          </p>
+        </div>
+        <div className="download-cards">
+          <article>
+            <span>⊞</span>
+            <div>
+              <strong>Windows · .exe</strong>
+              <small>{links.exeUrl ? "Installateur Windows prêt à télécharger" : "Dashboard uniquement"}</small>
+            </div>
+            {links.exeUrl ? (
+              <a href={links.exeUrl} target="_blank" rel="noreferrer" download>Télécharger .exe ↓</a>
+            ) : (
+              <a href="#build-instructions">Voir la commande</a>
+            )}
+          </article>
+          <article>
+            <span>▣</span>
+            <div>
+              <strong>Android · .apk</strong>
+              <small>{links.apkUrl ? "Paquet Android prêt à installer" : "Dashboard uniquement"}</small>
+            </div>
+            {links.apkUrl ? (
+              <a href={links.apkUrl} target="_blank" rel="noreferrer" download>Télécharger .apk ↓</a>
+            ) : (
+              <a href="#build-instructions">Voir la commande</a>
+            )}
+          </article>
+          <article>
+            <span>⌘</span>
+            <div>
+              <strong>Linux · .AppImage / .deb</strong>
+              <small>{links.linuxUrl ? "Paquet Linux prêt à télécharger" : "Dashboard uniquement"}</small>
+            </div>
+            {links.linuxUrl ? (
+              <a href={links.linuxUrl} target="_blank" rel="noreferrer" download>Télécharger Linux ↓</a>
+            ) : (
+              <a href="#build-instructions">Voir la commande</a>
+            )}
+          </article>
+        </div>
+      </div>
+    </section>
+  );
 }
 
 export function BuildInstructionsSection() {

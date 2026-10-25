@@ -5,10 +5,20 @@ const authController = require('../controllers/authController');
 const { authenticate } = require('../middleware/authenticate');
 const featureController = require('../controllers/featureController');
 
+const { EXE_DOWNLOAD_URL, APK_DOWNLOAD_URL, LINUX_DOWNLOAD_URL } = require('../config');
+
 const router = express.Router();
 
 router.get('/health', (_req, res) => {
   res.json({ ok: true, message: 'API active' });
+});
+
+router.get('/downloads', (_req, res) => {
+  res.json({
+    exeUrl: EXE_DOWNLOAD_URL,
+    apkUrl: APK_DOWNLOAD_URL,
+    linuxUrl: LINUX_DOWNLOAD_URL,
+  });
 });
 
 router.post('/auth/register', authController.register);

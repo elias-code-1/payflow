@@ -21,6 +21,12 @@ services:
         value: "true"
       - key: SESSION_SECRET
         generateValue: true
+      - key: PAYFLOW_EXE_DOWNLOAD_URL
+        value: ""
+      - key: PAYFLOW_APK_DOWNLOAD_URL
+        value: ""
+      - key: PAYFLOW_LINUX_DOWNLOAD_URL
+        value: ""
     disk:
       name: payflow-data
       mountPath: /var/data
